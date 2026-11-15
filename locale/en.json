@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Workspace status light",
+    "description": "Shows a factory-style red, amber, and green stack light for every conversation in the workspace: red waits for your answer with a buzzer, amber means work is running, green means idle."
+  }
+}

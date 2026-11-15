@@ -1,0 +1,3 @@
+- insert:
+    - id: dsh-status-light
+      name: '@local/dsh-status-light'
