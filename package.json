@@ -1,9 +1,26 @@
 {
   "name": "@local/dsh-status-light",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "Factory stack light for workspace conversations: red waits for you, amber is working, green is idle.",
   "type": "module",
+  "license": "MIT",
+  "author": "YunJianFengYin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YunJianFengYin/dsh-status-light.git"
+  },
+  "homepage": "https://github.com/YunJianFengYin/dsh-status-light#readme",
+  "bugs": {
+    "url": "https://github.com/YunJianFengYin/dsh-status-light/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "harness-plugin",
+    "status-light",
+    "notification"
+  ],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -16,7 +33,9 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "assets/icon.png",
+    "README.md",
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {
