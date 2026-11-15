@@ -7,11 +7,19 @@ window.__ModuleLoader__.load({
     /** Read-only aggregate route served by this bundle's Host half. */
     const STATE_URL = '/_dsh/status-light/state.json'
     const MUTED_KEY = 'dsh.status-light.muted'
+    const VOLUME_KEY = 'dsh.status-light.volume'
     const POLL_MS = 700
-    const REPEAT_MS = 3200
-    const BEEP_MS = 0.11
-    const BEEP_GAIN = 0.055
     const REACHABLE_FAILURES = 3
+    /** One fixed buzzer frequency; no sweep, so it reads as a plant buzzer. */
+    const BUZZER_HZ = 2100
+    /** Low-pass corner that keeps the square wave from turning into a chirp. */
+    const BUZZER_LOWPASS_HZ = 3200
+    /** Steady burst length and the silence between bursts. */
+    const BURST_SECONDS = 0.75
+    const REPEAT_MS = 2600
+    /** Gain at 100 % volume. */
+    const MAX_GAIN = 0.16
+    const DEFAULT_VOLUME = 0.45
 
     const DICT = {
       en: {
@@ -26,7 +34,8 @@ window.__ModuleLoader__.load({
         tower: 'Workspace conversation light',
         mute: 'Mute the buzzer',
         unmute: 'Turn the buzzer on',
-        hint: 'Click to toggle the buzzer',
+        volume: 'Buzzer volume',
+        hint: 'Click to toggle mute, drag the slider for volume',
         soundLocked: 'Click the page once to allow sound',
         empty: 'No conversations',
       },
@@ -42,7 +51,8 @@ window.__ModuleLoader__.load({
         tower: '工作区对话信号灯',
         mute: '静音蜂鸣器',
         unmute: '开启蜂鸣器',
-        hint: '点击切换蜂鸣器',
+        volume: '蜂鸣器音量',
+        hint: '点击切换静音，拖动滑块调音量',
         soundLocked: '点一下页面以开启声音',
         empty: '暂无对话',
       },
@@ -121,6 +131,23 @@ window.__ModuleLoader__.load({
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.dsh-sl-volume {
+  pointer-events: auto;
+  width: 76px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--dsw-alias-brand-primary, #4d8dff);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.16s ease;
+}
+.dsh-sl-volume:hover,
+.dsh-sl-volume:focus-visible { opacity: 1; }
+.dsh-sl-volume:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 @keyframes dsh-sl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.26; } }
 @keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.78; } }
@@ -133,6 +160,7 @@ window.__ModuleLoader__.load({
     function createBuzzer() {
       let audio = null
       let closed = false
+      let volume = DEFAULT_VOLUME
 
       function ensure() {
         if (closed) return null
@@ -147,28 +175,41 @@ window.__ModuleLoader__.load({
         return audio
       }
 
-      function tone(delaySeconds, frequency) {
+      /** One steady tone at one frequency: no sweep, no double beep. */
+      function burst(seconds) {
         const context = ensure()
         if (!context) return
         if (context.state === 'suspended') context.resume().catch(() => {})
         if (context.state !== 'running') return
-        const start = context.currentTime + delaySeconds
+        const peak = MAX_GAIN * Math.max(0, Math.min(1, volume))
+        if (!(peak > 0.0002)) return
+
+        const start = context.currentTime + 0.01
+        const end = start + Math.max(0.2, seconds)
+        const release = end - 0.05
         const oscillator = context.createOscillator()
+        const filter = context.createBiquadFilter()
         const gain = context.createGain()
+
         oscillator.type = 'square'
-        oscillator.frequency.setValueAtTime(frequency, start)
-        oscillator.frequency.linearRampToValueAtTime(frequency * 0.9, start + BEEP_MS)
+        oscillator.frequency.setValueAtTime(BUZZER_HZ, start)
+        filter.type = 'lowpass'
+        filter.frequency.setValueAtTime(BUZZER_LOWPASS_HZ, start)
+        filter.Q.setValueAtTime(0.7, start)
         gain.gain.setValueAtTime(0.0001, start)
-        gain.gain.exponentialRampToValueAtTime(BEEP_GAIN, start + 0.012)
-        gain.gain.setValueAtTime(BEEP_GAIN, start + BEEP_MS - 0.028)
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + BEEP_MS)
-        oscillator.connect(gain)
+        gain.gain.exponentialRampToValueAtTime(peak, start + 0.012)
+        gain.gain.setValueAtTime(peak, release)
+        gain.gain.exponentialRampToValueAtTime(0.0001, end)
+
+        oscillator.connect(filter)
+        filter.connect(gain)
         gain.connect(context.destination)
         oscillator.start(start)
-        oscillator.stop(start + BEEP_MS + 0.02)
+        oscillator.stop(end + 0.02)
         oscillator.onended = () => {
           try {
             oscillator.disconnect()
+            filter.disconnect()
             gain.disconnect()
           } catch (error) {
             /* already detached */
@@ -177,16 +218,18 @@ window.__ModuleLoader__.load({
       }
 
       return {
+        setVolume(next) {
+          volume = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : DEFAULT_VOLUME
+        },
         unlock() {
           const context = ensure()
           if (context && context.state === 'suspended') context.resume().catch(() => {})
         },
         alarm() {
-          tone(0, 2080)
-          tone(0.18, 2080)
+          burst(BURST_SECONDS)
         },
         test() {
-          tone(0, 1560)
+          burst(0.24)
         },
         close() {
           closed = true
@@ -219,6 +262,24 @@ window.__ModuleLoader__.load({
         }
       }
 
+      function readVolume() {
+        try {
+          const raw = Number(window.localStorage.getItem(VOLUME_KEY))
+          if (Number.isFinite(raw) && raw >= 0 && raw <= 100) return raw / 100
+        } catch (error) {
+          /* storage unavailable */
+        }
+        return DEFAULT_VOLUME
+      }
+
+      function writeVolume(value) {
+        try {
+          window.localStorage.setItem(VOLUME_KEY, String(Math.round(value * 100)))
+        } catch (error) {
+          /* storage unavailable */
+        }
+      }
+
       function dictionary() {
         let id = ''
         try {
@@ -235,13 +296,14 @@ window.__ModuleLoader__.load({
             id = ''
           }
         }
-        return /^zh\b/i.test(id) || /^zh/i.test(id) ? DICT.zh : DICT.en
+        return /^zh/i.test(id) ? DICT.zh : DICT.en
       }
 
       function StatusLight() {
         const [, setLocaleTick] = React.useState(0)
         const [snapshot, setSnapshot] = React.useState(null)
         const [muted, setMuted] = React.useState(readMuted)
+        const [volume, setVolume] = React.useState(readVolume)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
         const levelRef = React.useRef('unknown')
         const mutedRef = React.useRef(muted)
@@ -252,6 +314,10 @@ window.__ModuleLoader__.load({
           if (!locale || typeof locale.subscribe !== 'function') return undefined
           return locale.subscribe(() => setLocaleTick((tick) => tick + 1))
         }, [])
+
+        React.useEffect(() => {
+          buzzer.setVolume(volume)
+        }, [volume])
 
         React.useEffect(() => {
           let stopped = false
@@ -318,13 +384,15 @@ window.__ModuleLoader__.load({
         const counts = snapshot?.counts ?? { total: 0, waiting: 0, running: 0 }
         const waitingRows = Array.isArray(snapshot?.waiting) ? snapshot.waiting : []
         const runningRows = Array.isArray(snapshot?.running) ? snapshot.running : []
+        const percent = Math.round(volume * 100)
+        const silent = muted || percent === 0
 
         let caption
         if (level === 'unknown') caption = dict.offline
         else if (level === 'waiting') caption = `${dict.waiting} ${counts.waiting}`
         else if (level === 'running') caption = `${dict.running} ${counts.running}`
         else caption = dict.idle
-        if (muted) caption = `${caption} · ${dict.muted}`
+        if (silent) caption = `${caption} · ${dict.muted}`
 
         const lines = [dict.tower]
         if (level === 'unknown') {
@@ -344,8 +412,10 @@ window.__ModuleLoader__.load({
           }
           if (counts.total === 0) lines.push(dict.empty)
         }
-        if (level === 'waiting' && !muted && !soundUnlocked) lines.push(dict.soundLocked)
+        if (level === 'waiting' && !silent && !soundUnlocked) lines.push(dict.soundLocked)
+        lines.push(`${dict.volume}: ${percent}%`)
         lines.push(muted ? dict.unmute : dict.mute)
+        lines.push(dict.hint)
         const tooltip = lines.join('\n')
 
         const toggle = (event) => {
@@ -358,6 +428,23 @@ window.__ModuleLoader__.load({
             buzzer.test()
             setSoundUnlocked(true)
           }
+        }
+
+        const changeVolume = (event) => {
+          const next = Math.max(0, Math.min(100, Number(event.target.value) || 0)) / 100
+          setVolume(next)
+          writeVolume(next)
+          buzzer.setVolume(next)
+          buzzer.unlock()
+          setSoundUnlocked(true)
+          if (muted && next > 0) {
+            setMuted(false)
+            writeMuted(false)
+          }
+        }
+
+        const previewVolume = () => {
+          if (!muted && volume > 0) buzzer.test()
         }
 
         const lamp = (color, on) => h('span', { key: color, className: `dsh-sl-lamp dsh-sl-lamp-${color}${on ? ' is-on' : ''}` })
@@ -382,6 +469,24 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dsh-sl-base' }),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
+          h('input', {
+            type: 'range',
+            className: 'dsh-sl-volume',
+            min: 0,
+            max: 100,
+            step: 5,
+            value: percent,
+            title: `${dict.volume}: ${percent}%`,
+            'aria-label': dict.volume,
+            'aria-valuetext': `${percent}%`,
+            onChange: changeVolume,
+            onPointerDown: () => {
+              buzzer.unlock()
+              setSoundUnlocked(true)
+            },
+            onPointerUp: previewVolume,
+            onKeyUp: previewVolume,
+          }),
         )
       }
 
