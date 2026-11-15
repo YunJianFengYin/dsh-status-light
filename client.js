@@ -292,9 +292,9 @@ window.__ModuleLoader__.load({
         'svg',
         {
           className: 'dsh-sl-svg',
-          viewBox: '0 0 70 292',
+          viewBox: '0 0 70 200',
           width: TOWER_WIDTH,
-          height: Math.round((TOWER_WIDTH * 292) / 70),
+          height: Math.round((TOWER_WIDTH * 200) / 70),
           'aria-hidden': true,
           focusable: 'false',
         },
@@ -328,39 +328,17 @@ window.__ModuleLoader__.load({
           ),
           h('filter', { id: 'sl-glow', x: '-40%', y: '-25%', width: '180%', height: '150%' }, h('feGaussianBlur', { stdDeviation: '3' })),
         ),
-        // base plate
-        h('rect', { x: 0, y: 276, width: 70, height: 16, rx: 3, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.6 }),
-        h('circle', { cx: 13, cy: 284, r: 2.2, fill: '#a8aeb6' }),
-        h('circle', { cx: 57, cy: 284, r: 2.2, fill: '#a8aeb6' }),
-        // swivel joint
-        h('circle', { cx: 35, cy: 261, r: 15, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.6 }),
-        h('circle', { cx: 35, cy: 261, r: 6.5, fill: '#dfe3e8', stroke: '#b3b9c1', strokeWidth: 0.6 }),
-        h('rect', { x: 31.6, y: 260.2, width: 6.8, height: 1.6, rx: 0.8, fill: '#9aa1ab' }),
-        // pole
-        h('rect', { x: 26, y: 232, width: 18, height: 17, fill: 'url(#sl-white)' }),
-        // body with the name plate
-        h('rect', { x: 10, y: 176, width: 50, height: 56, rx: 2, fill: 'url(#sl-white)' }),
-        h('rect', { x: 10, y: 176, width: 50, height: 0.9, fill: '#000000', opacity: 0.14 }),
-        h('rect', { x: 16, y: 190, width: 38, height: 30, rx: 2, fill: '#e9ecf0', stroke: '#c2c7ce', strokeWidth: 0.5 }),
-        h(
-          'text',
-          { x: 35, y: 200.5, textAnchor: 'middle', fontSize: 5.4, fontWeight: 700, fill: '#2b3038', fontFamily: 'Arial, sans-serif' },
-          'YH50-3A-J',
-        ),
-        h(
-          'text',
-          { x: 35, y: 207.5, textAnchor: 'middle', fontSize: 4, fill: '#4a505a', fontFamily: 'Arial, sans-serif' },
-          '220V',
-        ),
-        h('rect', { x: 21, y: 212.5, width: 28, height: 1.4, rx: 0.7, fill: '#9aa1ab' }),
+        // plain white body, no name plate and no text
+        h('rect', { x: 10, y: 135.5, width: 50, height: 56, rx: 2, fill: 'url(#sl-white)' }),
+        h('rect', { x: 10, y: 135.5, width: 50, height: 0.9, fill: '#000000', opacity: 0.14 }),
         // lenses
-        lens('red', 56, on.red),
-        spacer('spacer-1', 92),
-        lens('amber', 98, on.amber),
-        spacer('spacer-2', 134),
-        lens('green', 140, on.green),
+        lens('red', 15.5, on.red),
+        spacer('spacer-1', 51.5),
+        lens('amber', 57.5, on.amber),
+        spacer('spacer-2', 93.5),
+        lens('green', 99.5, on.green),
         // cap
-        h('rect', { x: 10, y: 48, width: 50, height: 8, rx: 3, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.5 }),
+        h('rect', { x: 10, y: 8, width: 50, height: 7.5, rx: 3, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.5 }),
       )
     }
 
