@@ -12,15 +12,15 @@
 
 ## 使用
 
-- 鼠标悬停信号塔：显示每个对话的标题与等待原因。
-- 点击信号塔：静音 / 开启蜂鸣器（状态记在浏览器 `localStorage`）。
-- 灯下方的滑块：调节蜂鸣器音量 0–100%，松手会试听一下；拖动滑块会自动解除静音。
+- 悬停信号塔：显示每个对话的标题与等待原因。
+- 左键或右键点击信号塔：打开「信号灯设置」面板，里面是蜂鸣器静音开关、音量滑块（0–100%，松手试听）和试听按钮；点面板外面或按 Esc 关闭。
+- 设置记在浏览器 `localStorage`（`dsh.status-light.muted`、`dsh.status-light.volume`）。
 - 浏览器要求先有一次用户手势才允许出声：点一下页面任意处即可解锁；解锁前红灯只闪不响。
 
 ## 结构
 
 - `index.js`：Host 半。用 `tools/execute` 包住 `ask_user_question` 的执行窗口、监听 `user-questions/request` 与 `approval/request` 两个 waterfall 事件（只观察，不改变结果），再用 `sessionController.list()` 汇总会话运行状态，在 `/_dsh/status-light/state.json` 上提供只读快照。
-- `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，画信号塔并用 Web Audio 合成蜂鸣器音。
+- `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，画信号塔并用 Web Audio 合成蜂鸣器音；右键（或左键）信号塔弹出设置面板。
 - `locale/en.json`、`locale/zh.json`：插件管理器里显示的标题与说明。
 - `icon.svg`：插件图标。
 

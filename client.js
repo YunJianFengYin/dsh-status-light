@@ -35,7 +35,11 @@ window.__ModuleLoader__.load({
         mute: 'Mute the buzzer',
         unmute: 'Turn the buzzer on',
         volume: 'Buzzer volume',
-        hint: 'Click to toggle mute, drag the slider for volume',
+        settings: 'Status light settings',
+        buzzer: 'Buzzer',
+        preview: 'Test',
+        close: 'Close settings',
+        hint: 'Left or right click opens settings',
         soundLocked: 'Click the page once to allow sound',
         empty: 'No conversations',
       },
@@ -52,7 +56,11 @@ window.__ModuleLoader__.load({
         mute: '静音蜂鸣器',
         unmute: '开启蜂鸣器',
         volume: '蜂鸣器音量',
-        hint: '点击切换静音，拖动滑块调音量',
+        settings: '信号灯设置',
+        buzzer: '蜂鸣器',
+        preview: '试听',
+        close: '关闭设置',
+        hint: '左键或右键打开设置',
         soundLocked: '点一下页面以开启声音',
         empty: '暂无对话',
       },
@@ -131,23 +139,130 @@ window.__ModuleLoader__.load({
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.dsh-sl-panel {
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 212px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.32));
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-overlay, rgba(30, 30, 32, 0.96));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+  color: var(--dsw-alias-label-primary, #e8eaed);
+  font: 12px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+.dsh-sl-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dsh-sl-panel-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dsh-sl-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #9aa0a6);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dsh-sl-close:hover {
+  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08));
+  color: var(--dsw-alias-label-primary, #e8eaed);
+}
+.dsh-sl-panel-status {
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.24));
+  color: var(--dsw-alias-label-secondary, #9aa0a6);
+}
+.dsh-sl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dsh-sl-row-label { color: var(--dsw-alias-label-secondary, #9aa0a6); }
+.dsh-sl-row-value {
+  min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary, #9aa0a6);
+}
+.dsh-sl-switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.4));
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.1));
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.dsh-sl-switch.is-on {
+  background: var(--dsw-alias-brand-primary, #4d8dff);
+  border-color: transparent;
+}
+.dsh-sl-switch:focus-visible,
+.dsh-sl-close:focus-visible,
+.dsh-sl-test:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff);
+  outline-offset: 2px;
+}
+.dsh-sl-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.16s ease;
+}
+.dsh-sl-switch.is-on .dsh-sl-switch-knob { transform: translateX(16px); }
 .dsh-sl-volume {
   pointer-events: auto;
-  width: 76px;
-  height: 14px;
+  flex: 1;
+  min-width: 0;
+  height: 16px;
   margin: 0;
   accent-color: var(--dsw-alias-brand-primary, #4d8dff);
   cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.16s ease;
 }
-.dsh-sl-volume:hover,
-.dsh-sl-volume:focus-visible { opacity: 1; }
 .dsh-sl-volume:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff);
   outline-offset: 2px;
   border-radius: 4px;
 }
+.dsh-sl-test {
+  pointer-events: auto;
+  margin-left: auto;
+  padding: 3px 12px;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.4));
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #e8eaed);
+  font: inherit;
+  cursor: pointer;
+}
+.dsh-sl-test:hover { background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08)); }
 @keyframes dsh-sl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.26; } }
 @keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.78; } }
@@ -305,6 +420,8 @@ window.__ModuleLoader__.load({
         const [muted, setMuted] = React.useState(readMuted)
         const [volume, setVolume] = React.useState(readVolume)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
+        const [panelOpen, setPanelOpen] = React.useState(false)
+        const rootRef = React.useRef(null)
         const levelRef = React.useRef('unknown')
         const mutedRef = React.useRef(muted)
         const dict = dictionary()
@@ -381,6 +498,23 @@ window.__ModuleLoader__.load({
           }
         }, [])
 
+        React.useEffect(() => {
+          if (!panelOpen) return undefined
+          const onPointerDown = (event) => {
+            if (rootRef.current && rootRef.current.contains(event.target)) return
+            setPanelOpen(false)
+          }
+          const onKeyDown = (event) => {
+            if (event.key === 'Escape') setPanelOpen(false)
+          }
+          document.addEventListener('pointerdown', onPointerDown, true)
+          document.addEventListener('keydown', onKeyDown)
+          return () => {
+            document.removeEventListener('pointerdown', onPointerDown, true)
+            document.removeEventListener('keydown', onKeyDown)
+          }
+        }, [panelOpen])
+
         const counts = snapshot?.counts ?? { total: 0, waiting: 0, running: 0 }
         const waitingRows = Array.isArray(snapshot?.waiting) ? snapshot.waiting : []
         const runningRows = Array.isArray(snapshot?.running) ? snapshot.running : []
@@ -414,7 +548,6 @@ window.__ModuleLoader__.load({
         }
         if (level === 'waiting' && !silent && !soundUnlocked) lines.push(dict.soundLocked)
         lines.push(`${dict.volume}: ${percent}%`)
-        lines.push(muted ? dict.unmute : dict.mute)
         lines.push(dict.hint)
         const tooltip = lines.join('\n')
 
@@ -444,15 +577,79 @@ window.__ModuleLoader__.load({
         }
 
         const previewVolume = () => {
+          buzzer.unlock()
+          setSoundUnlocked(true)
           if (!muted && volume > 0) buzzer.test()
+        }
+
+        const openPanel = () => {
+          buzzer.unlock()
+          setSoundUnlocked(true)
+          setPanelOpen(true)
         }
 
         const lamp = (color, on) => h('span', { key: color, className: `dsh-sl-lamp dsh-sl-lamp-${color}${on ? ' is-on' : ''}` })
 
+        const panel = panelOpen
+          ? h(
+              'div',
+              { className: 'dsh-sl-panel', role: 'dialog', 'aria-label': dict.settings },
+              h(
+                'div',
+                { className: 'dsh-sl-panel-head' },
+                h('span', { className: 'dsh-sl-panel-title' }, dict.settings),
+                h('button', { type: 'button', className: 'dsh-sl-close', 'aria-label': dict.close, onClick: () => setPanelOpen(false) }, '×'),
+              ),
+              h('div', { className: 'dsh-sl-panel-status' }, caption),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.buzzer),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    role: 'switch',
+                    'aria-checked': !muted,
+                    'aria-label': dict.buzzer,
+                    className: `dsh-sl-switch${muted ? '' : ' is-on'}`,
+                    onClick: toggle,
+                  },
+                  h('span', { className: 'dsh-sl-switch-knob' }),
+                ),
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.volume),
+                h('input', {
+                  type: 'range',
+                  className: 'dsh-sl-volume',
+                  min: 0,
+                  max: 100,
+                  step: 5,
+                  value: percent,
+                  'aria-label': dict.volume,
+                  'aria-valuetext': `${percent}%`,
+                  onChange: changeVolume,
+                  onPointerDown: () => {
+                    buzzer.unlock()
+                    setSoundUnlocked(true)
+                  },
+                  onPointerUp: previewVolume,
+                  onKeyUp: previewVolume,
+                }),
+                h('span', { className: 'dsh-sl-row-value' }, `${percent}%`),
+              ),
+              h('div', { className: 'dsh-sl-row' }, h('button', { type: 'button', className: 'dsh-sl-test', onClick: previewVolume }, dict.preview)),
+            )
+          : null
+
         return h(
           'div',
-          { className: 'dsh-sl-root' },
+          { className: 'dsh-sl-root', ref: rootRef },
           h('style', null, CSS),
+          panel,
           h(
             'button',
             {
@@ -461,7 +658,13 @@ window.__ModuleLoader__.load({
               title: tooltip,
               'aria-label': `${caption} · ${tooltip}`,
               'aria-live': 'polite',
-              onClick: toggle,
+              'aria-haspopup': 'dialog',
+              'aria-expanded': panelOpen,
+              onClick: () => setPanelOpen((open) => !open),
+              onContextMenu: (event) => {
+                event.preventDefault()
+                openPanel()
+              },
             },
             lamp('red', level === 'waiting'),
             lamp('amber', level === 'running'),
@@ -469,24 +672,6 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dsh-sl-base' }),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
-          h('input', {
-            type: 'range',
-            className: 'dsh-sl-volume',
-            min: 0,
-            max: 100,
-            step: 5,
-            value: percent,
-            title: `${dict.volume}: ${percent}%`,
-            'aria-label': dict.volume,
-            'aria-valuetext': `${percent}%`,
-            onChange: changeVolume,
-            onPointerDown: () => {
-              buzzer.unlock()
-              setSoundUnlocked(true)
-            },
-            onPointerUp: previewVolume,
-            onKeyUp: previewVolume,
-          }),
         )
       }
 
