@@ -4,9 +4,11 @@
 
 | 灯 | 含义 | 声音 |
 | --- | --- | --- |
-| 红灯 | 至少有一个对话在等你：提问、授权、计划审阅 | 单一频率（≈2.1 kHz）持续蜂鸣 0.75 秒，间隔约 2.6 秒重复 |
+| 红灯 | 至少有一个对话在等你：提问、授权（高权限操作）、计划审阅 | 单一频率（≈2.1 kHz）持续蜂鸣 1 秒、停 0.6 秒，循环 |
 | 黄灯 | 有对话正在运行（没有在等你的） | 无声 |
 | 绿灯 | 全部空闲 | 无声 |
+
+外观按工业信号灯（YH50-3A-J 这类）绘制：白色灯柱、红/黄/绿三层皱纹透镜、6 mm 白色隔环、带铭牌的白底座、万向节与底板；比例取自参考图（透镜 50×36、底座段 56、底板 70）。
 
 多个对话合并规则：**等待 > 运行 > 空闲**，任何一个对话被中断（提问 / 授权）就整体显示红灯并响蜂鸣器。
 
@@ -19,8 +21,8 @@
 
 ## 结构
 
-- `index.js`：Host 半。用 `tools/execute` 包住 `ask_user_question` 的执行窗口、监听 `user-questions/request` 与 `approval/request` 两个 waterfall 事件（只观察，不改变结果），再用 `sessionController.list()` 汇总会话运行状态，在 `/_dsh/status-light/state.json` 上提供只读快照。
-- `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，画信号塔并用 Web Audio 合成蜂鸣器音；右键（或左键）信号塔弹出设置面板。
+- `index.js`：Host 半。用 `tools/execute` 包住 `ask_user_question` 的执行窗口、用 `tools/pre-execute` 的 `ask` 决策标记高权限操作的审批窗口、监听 `user-questions/request` 与 `approval/request` 两个 waterfall 事件（只观察，不改变结果），再用 `sessionController.list()` 汇总会话运行状态，在 `/_dsh/status-light/state.json` 上提供只读快照。
+- `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，用 SVG 画信号塔并用 Web Audio 合成蜂鸣器音；右键（或左键）信号塔弹出设置面板。
 - `locale/en.json`、`locale/zh.json`：插件管理器里显示的标题与说明。
 - `icon.svg`：插件图标。
 

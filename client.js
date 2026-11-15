@@ -14,12 +14,14 @@ window.__ModuleLoader__.load({
     const BUZZER_HZ = 2100
     /** Low-pass corner that keeps the square wave from turning into a chirp. */
     const BUZZER_LOWPASS_HZ = 3200
-    /** Steady burst length and the silence between bursts. */
-    const BURST_SECONDS = 0.75
-    const REPEAT_MS = 2600
+    /** 1 s on, 0.6 s off, repeating. */
+    const BURST_SECONDS = 1.0
+    const REPEAT_MS = 1600
     /** Gain at 100 % volume. */
     const MAX_GAIN = 0.16
     const DEFAULT_VOLUME = 0.45
+    /** Tower footprint in CSS px; the drawing keeps the reference proportions. */
+    const TOWER_WIDTH = 40
 
     const DICT = {
       en: {
@@ -75,59 +77,28 @@ window.__ModuleLoader__.load({
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   pointer-events: none;
   user-select: none;
   font: 11px/1.45 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 .dsh-sl-tower {
   pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
   margin: 0;
-  padding: 9px 8px 7px;
-  border: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.32));
-  border-radius: 15px;
-  background: var(--dsw-alias-bg-overlay, rgba(30, 30, 32, 0.94));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  padding: 0;
+  border: none;
+  background: none;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  line-height: 0;
+  transition: transform 0.16s ease;
 }
-.dsh-sl-tower:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
-.dsh-sl-tower:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff); outline-offset: 3px; }
-.dsh-sl-lamp {
-  display: block;
-  width: 28px;
-  height: 28px;
-  margin: 3px 0;
-  border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 48%), var(--sl-dim);
-  box-shadow: inset 0 0 0 3px var(--sl-rim), inset 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 1px rgba(255, 255, 255, 0.08);
-  opacity: 0.34;
-  filter: saturate(0.3) brightness(0.72);
-  transition: opacity 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
-}
-.dsh-sl-lamp.is-on {
-  opacity: 1;
-  filter: none;
-  box-shadow: inset 0 0 0 3px var(--sl-rim), 0 0 14px 3px var(--sl-glow), inset 0 -7px 13px rgba(255, 255, 255, 0.2);
-}
-.dsh-sl-lamp-red { --sl-dim: #6d1a16; --sl-rim: #2b0c0a; --sl-glow: rgba(255, 59, 48, 0.78); }
-.dsh-sl-lamp-amber { --sl-dim: #6e4a09; --sl-rim: #2c1e05; --sl-glow: rgba(255, 176, 32, 0.72); }
-.dsh-sl-lamp-green { --sl-dim: #176033; --sl-rim: #072815; --sl-glow: rgba(52, 199, 89, 0.66); }
-.dsh-sl-lamp-red.is-on { background: radial-gradient(circle at 34% 30%, #fff1ef, #ff3b30 42%, #a71c16 100%); animation: dsh-sl-pulse 1.1s ease-in-out infinite; }
-.dsh-sl-lamp-amber.is-on { background: radial-gradient(circle at 34% 30%, #fff8e6, #ffb020 44%, #a86f06 100%); animation: dsh-sl-blink 1.6s steps(1, end) infinite; }
-.dsh-sl-lamp-green.is-on { background: radial-gradient(circle at 34% 30%, #effff4, #34c759 44%, #1c7f3b 100%); animation: dsh-sl-breathe 3.2s ease-in-out infinite; }
-.dsh-sl-base {
-  display: block;
-  width: 34px;
-  height: 9px;
-  margin-top: 5px;
-  border-radius: 0 0 5px 5px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0.28));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
-}
+.dsh-sl-tower:hover { transform: translateY(-2px); }
+.dsh-sl-tower:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff); outline-offset: 4px; border-radius: 8px; }
+.dsh-sl-svg { display: block; overflow: visible; filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.3)); }
+.dsh-sl-lens-red.is-on { animation: dsh-sl-pulse 1.1s ease-in-out infinite; }
+.dsh-sl-lens-amber.is-on { animation: dsh-sl-blink 1.6s steps(1, end) infinite; }
+.dsh-sl-lens-green.is-on { animation: dsh-sl-breathe 3.2s ease-in-out infinite; }
 .dsh-sl-caption {
   pointer-events: auto;
   max-width: 132px;
@@ -263,14 +234,135 @@ window.__ModuleLoader__.load({
   cursor: pointer;
 }
 .dsh-sl-test:hover { background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08)); }
-@keyframes dsh-sl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.26; } }
-@keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.78; } }
+@keyframes dsh-sl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.3; } }
+@keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
 @media (prefers-reduced-motion: reduce) {
-  .dsh-sl-lamp.is-on { animation: none; }
+  .dsh-sl-lens.is-on { animation: none; }
   .dsh-sl-tower { transition: none; }
 }
 `
+
+    /** The reference tower: 50 mm lenses, 36 mm lens height, 6 mm spacers, 56 mm body. */
+    function towerSvg(level) {
+      const on = { red: level === 'waiting', amber: level === 'running', green: level === 'idle' }
+
+      const gens = []
+      for (const [name, stops] of [
+        ['sl-red-off', ['#3f0d0b', '#8a211b', '#5f120f', '#300806']],
+        ['sl-red-on', ['#d1382f', '#ff8d80', '#ff3b30', '#d2271e', '#8d100b']],
+        ['sl-amber-off', ['#3d2a04', '#8a620f', '#5c4207', '#2c1d03']],
+        ['sl-amber-on', ['#d9a52a', '#ffe08a', '#ffb020', '#d68a00', '#8a5600']],
+        ['sl-green-off', ['#0c3a20', '#1e6b3b', '#114a29', '#082b17']],
+        ['sl-green-on', ['#3fbf68', '#a8f5c1', '#34c759', '#17903f', '#0c5c28']],
+      ]) {
+        gens.push(
+          h(
+            'linearGradient',
+            { key: name, id: name, x1: '0', x2: '1', y1: '0', y2: '0' },
+            stops.map((color, index) =>
+              h('stop', { key: index, offset: String(index / (stops.length - 1)), stopColor: color }),
+            ),
+          ),
+        )
+      }
+
+      const lens = (color, y, active) =>
+        h(
+          'g',
+          { key: color, className: `dsh-sl-lens dsh-sl-lens-${color}${active ? ' is-on' : ''}` },
+          active
+            ? h('rect', { x: 9, y: y - 2, width: 52, height: 40, rx: 5, fill: `url(#sl-${color}-on)`, opacity: 0.62, filter: 'url(#sl-glow)' })
+            : null,
+          h('rect', { x: 10, y, width: 50, height: 36, fill: `url(#sl-${color}-${active ? 'on' : 'off'})` }),
+          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-ribs)' }),
+          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-gloss)' }),
+          h('rect', { x: 10, y, width: 50, height: 0.8, fill: '#fff', opacity: 0.3 }),
+        )
+
+      const spacer = (key, y) =>
+        h(
+          'g',
+          { key },
+          h('rect', { x: 10, y, width: 50, height: 6, fill: 'url(#sl-white)' }),
+          h('rect', { x: 10, y: y + 5.2, width: 50, height: 0.8, fill: '#000', opacity: 0.12 }),
+        )
+
+      return h(
+        'svg',
+        {
+          className: 'dsh-sl-svg',
+          viewBox: '0 0 70 292',
+          width: TOWER_WIDTH,
+          height: Math.round((TOWER_WIDTH * 292) / 70),
+          'aria-hidden': true,
+          focusable: 'false',
+        },
+        h(
+          'defs',
+          null,
+          h(
+            'linearGradient',
+            { id: 'sl-white', x1: '0', x2: '1', y1: '0', y2: '0' },
+            h('stop', { offset: '0', stopColor: '#c9ced5' }),
+            h('stop', { offset: '0.16', stopColor: '#ffffff' }),
+            h('stop', { offset: '0.52', stopColor: '#eff1f4' }),
+            h('stop', { offset: '0.84', stopColor: '#d9dde2' }),
+            h('stop', { offset: '1', stopColor: '#b9bfc7' }),
+          ),
+          gens,
+          h(
+            'linearGradient',
+            { id: 'sl-gloss', x1: '0', x2: '1', y1: '0', y2: '0' },
+            h('stop', { offset: '0.04', stopColor: '#ffffff', stopOpacity: '0.5' }),
+            h('stop', { offset: '0.22', stopColor: '#ffffff', stopOpacity: '0.08' }),
+            h('stop', { offset: '0.55', stopColor: '#ffffff', stopOpacity: '0' }),
+            h('stop', { offset: '0.86', stopColor: '#000000', stopOpacity: '0.14' }),
+            h('stop', { offset: '1', stopColor: '#000000', stopOpacity: '0.34' }),
+          ),
+          h(
+            'pattern',
+            { id: 'sl-ribs', width: '8', height: '3.2', patternUnits: 'userSpaceOnUse' },
+            h('rect', { y: '2.6', width: '8', height: '0.6', fill: '#000000', opacity: '0.22' }),
+            h('rect', { y: '0', width: '8', height: '0.45', fill: '#ffffff', opacity: '0.16' }),
+          ),
+          h('filter', { id: 'sl-glow', x: '-40%', y: '-25%', width: '180%', height: '150%' }, h('feGaussianBlur', { stdDeviation: '3' })),
+        ),
+        // base plate
+        h('rect', { x: 0, y: 276, width: 70, height: 16, rx: 3, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.6 }),
+        h('circle', { cx: 13, cy: 284, r: 2.2, fill: '#a8aeb6' }),
+        h('circle', { cx: 57, cy: 284, r: 2.2, fill: '#a8aeb6' }),
+        // swivel joint
+        h('circle', { cx: 35, cy: 261, r: 15, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.6 }),
+        h('circle', { cx: 35, cy: 261, r: 6.5, fill: '#dfe3e8', stroke: '#b3b9c1', strokeWidth: 0.6 }),
+        h('rect', { x: 31.6, y: 260.2, width: 6.8, height: 1.6, rx: 0.8, fill: '#9aa1ab' }),
+        // pole
+        h('rect', { x: 26, y: 232, width: 18, height: 17, fill: 'url(#sl-white)' }),
+        // body with the name plate
+        h('rect', { x: 10, y: 176, width: 50, height: 56, rx: 2, fill: 'url(#sl-white)' }),
+        h('rect', { x: 10, y: 176, width: 50, height: 0.9, fill: '#000000', opacity: 0.14 }),
+        h('rect', { x: 16, y: 190, width: 38, height: 30, rx: 2, fill: '#e9ecf0', stroke: '#c2c7ce', strokeWidth: 0.5 }),
+        h(
+          'text',
+          { x: 35, y: 200.5, textAnchor: 'middle', fontSize: 5.4, fontWeight: 700, fill: '#2b3038', fontFamily: 'Arial, sans-serif' },
+          'YH50-3A-J',
+        ),
+        h(
+          'text',
+          { x: 35, y: 207.5, textAnchor: 'middle', fontSize: 4, fill: '#4a505a', fontFamily: 'Arial, sans-serif' },
+          '220V',
+        ),
+        h('rect', { x: 21, y: 212.5, width: 28, height: 1.4, rx: 0.7, fill: '#9aa1ab' }),
+        // lenses
+        lens('red', 56, on.red),
+        spacer('spacer-1', 92),
+        lens('amber', 98, on.amber),
+        spacer('spacer-2', 134),
+        lens('green', 140, on.green),
+        // cap
+        h('rect', { x: 10, y: 48, width: 50, height: 8, rx: 3, fill: 'url(#sl-white)', stroke: '#b3b9c1', strokeWidth: 0.5 }),
+      )
+    }
 
     function createBuzzer() {
       let audio = null
@@ -301,7 +393,7 @@ window.__ModuleLoader__.load({
 
         const start = context.currentTime + 0.01
         const end = start + Math.max(0.2, seconds)
-        const release = end - 0.05
+        const release = end - 0.06
         const oscillator = context.createOscillator()
         const filter = context.createBiquadFilter()
         const gain = context.createGain()
@@ -588,8 +680,6 @@ window.__ModuleLoader__.load({
           setPanelOpen(true)
         }
 
-        const lamp = (color, on) => h('span', { key: color, className: `dsh-sl-lamp dsh-sl-lamp-${color}${on ? ' is-on' : ''}` })
-
         const panel = panelOpen
           ? h(
               'div',
@@ -666,10 +756,7 @@ window.__ModuleLoader__.load({
                 openPanel()
               },
             },
-            lamp('red', level === 'waiting'),
-            lamp('amber', level === 'running'),
-            lamp('green', level === 'idle'),
-            h('span', { className: 'dsh-sl-base' }),
+            towerSvg(level),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
         )

@@ -21,6 +21,8 @@ const MAX_LABEL_LENGTH = 90
 const FALLBACK_SESSION = 'waiting:unresolved'
 /** Tools whose whole execution window means "the agent is blocked on the user". */
 const HUMAN_WAIT_TOOLS = new Set(['ask_user_question'])
+/** A pending approval that never reaches execution is dropped after this long. */
+const ASK_WINDOW_TIMEOUT_MS = 10 * 60 * 1000
 
 const noop = () => {}
 
@@ -34,6 +36,15 @@ export function apply(ctx) {
   let tokenSeq = 0
   /** Cached conversation rows; the waiting flags merge in live on every request. */
   const listCache = { at: 0, rows: [] }
+  /** Calls whose pre-execute decision is `ask`: the user is being asked for approval. */
+  const askWindows = new Map()
+
+  function releaseAsk(callId) {
+    const entry = askWindows.get(callId)
+    if (!entry) return
+    askWindows.delete(callId)
+    entry.release()
+  }
 
   function enterWait(sessionId, kind, label) {
     if (typeof sessionId !== 'string' || sessionId.length === 0) return noop
@@ -95,10 +106,37 @@ export function apply(ctx) {
     }
   })
 
+  // A high-privilege call asks composed answerers before dispatch: the final
+  // `ask` decision marks the exact window in which the user must approve it.
+  // Registered first so this observer still sees a decision another listener owns.
+  const onPreExecute = async (exec, next) => {
+    const decision = await next()
+    if (decision && decision.kind === 'ask') {
+      const callId = typeof exec?.callId === 'string' ? exec.callId : ''
+      const agentId = exec?.agent?.id
+      const sessionId = typeof agentId === 'string' && agentId.length > 0 ? agentId : FALLBACK_SESSION
+      const release = enterWait(sessionId, 'approval', typeof exec?.name === 'string' ? exec.name : '')
+      if (callId) askWindows.set(callId, { release, at: Date.now() })
+      else release()
+    }
+    return decision
+  }
+  try {
+    ctx.on('tools/pre-execute', onPreExecute, true)
+  } catch (error) {
+    ctx.on('tools/pre-execute', onPreExecute)
+  }
+
+  // The call resumed after an approval, finished, or was refused: stop waiting.
+  ctx.on('tools/result', (exec) => {
+    if (exec && typeof exec.callId === 'string') releaseAsk(exec.callId)
+  })
+
   // The Web UI answers a question through a timed wait instead of the request
   // waterfall, so the reliable signal is the ask tool's own execution window:
   // it stays pending exactly while the agent is blocked on the user.
   ctx.on('tools/execute', async (exec, next) => {
+    if (exec && typeof exec.callId === 'string') releaseAsk(exec.callId)
     const name = typeof exec?.name === 'string' ? exec.name : ''
     if (!HUMAN_WAIT_TOOLS.has(name)) return next()
     const agentId = exec?.agent?.id
@@ -139,6 +177,14 @@ export function apply(ctx) {
   }
 
   async function collect() {
+    const now = Date.now()
+    for (const [callId, entry] of askWindows) {
+      if (now - entry.at > ASK_WINDOW_TIMEOUT_MS) {
+        askWindows.delete(callId)
+        entry.release()
+      }
+    }
+
     const rows = await conversationRows()
     const titles = new Map(rows.map((row) => [row.id, row.title]))
 
