@@ -4,6 +4,8 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 
 把 Harness 里所有对话的状态做成一座工厂三色信号塔，挂在窗口右下角；有对话被提问 / 授权 / 计划审阅打断时亮红灯并蜂鸣。
 
+<img width="141" height="389" alt="PixPin_2026-11-15_15-33-05" src="https://github.com/user-attachments/assets/8ccf47e2-35af-46c7-b15e-3fd2de4faa1b" />
+
 | 灯 | 含义 | 声音 |
 | --- | --- | --- |
 | 红灯 | 至少有一个对话在等你：提问、授权（高权限操作）、计划审阅 | 单一频率（≈2.1 kHz）持续蜂鸣 1 秒、停 0.6 秒，循环 |
