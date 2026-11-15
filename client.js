@@ -29,8 +29,8 @@ window.__ModuleLoader__.load({
     const DEFAULT_VOLUME = 0.45
     /** Tower footprint in CSS px; the drawing keeps the reference proportions. */
     const DEFAULT_TOWER_WIDTH = 40
-    const MIN_TOWER_WIDTH = 24
-    const MAX_TOWER_WIDTH = 88
+    const MIN_TOWER_WIDTH = 16
+    const MAX_TOWER_WIDTH = 160
     const TOWER_STEP = 4
 
     const DICT = {
