@@ -102,7 +102,6 @@ window.__ModuleLoader__.load({
 .dsh-sl-tower:hover { transform: translateY(-2px); }
 .dsh-sl-tower:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff); outline-offset: 4px; border-radius: 8px; }
 .dsh-sl-svg { display: block; overflow: visible; filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.3)); }
-.dsh-sl-lens-red.is-on { animation: dsh-sl-pulse 1.1s ease-in-out infinite; }
 .dsh-sl-lens-amber.is-on { animation: dsh-sl-blink 1.6s steps(1, end) infinite; }
 .dsh-sl-lens-green.is-on { animation: dsh-sl-breathe 3.2s ease-in-out infinite; }
 .dsh-sl-caption {
@@ -240,7 +239,6 @@ window.__ModuleLoader__.load({
   cursor: pointer;
 }
 .dsh-sl-test:hover { background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08)); }
-@keyframes dsh-sl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.3; } }
 @keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
 @media (prefers-reduced-motion: reduce) {
@@ -250,8 +248,12 @@ window.__ModuleLoader__.load({
 `
 
     /** The reference tower: 50 mm lenses, 36 mm lens height, 6 mm spacers, 56 mm body. */
-    function towerSvg(level, width, greenOn) {
-      const on = { red: level === 'waiting', amber: level === 'running', green: level === 'idle' && greenOn !== false }
+    function towerSvg(level, width, greenOn, redOn) {
+      const on = {
+        red: level === 'waiting' && redOn !== false,
+        amber: level === 'running',
+        green: level === 'idle' && greenOn !== false,
+      }
 
       const gens = []
       for (const [name, stops] of [
@@ -525,6 +527,7 @@ window.__ModuleLoader__.load({
         const [volume, setVolume] = React.useState(readVolume)
         const [size, setSize] = React.useState(readSize)
         const [greenOn, setGreenOn] = React.useState(true)
+        const [alarmOn, setAlarmOn] = React.useState(false)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
         const [panelOpen, setPanelOpen] = React.useState(false)
         const rootRef = React.useRef(null)
@@ -609,27 +612,38 @@ window.__ModuleLoader__.load({
           }
         }, [level])
 
+        // The red lamp flashes with the buzzer: lit while the tone sounds, dark in
+        // the gap. The rhythm keeps running while muted, so the light still warns.
         React.useEffect(() => {
-          if (muted || level !== 'waiting') return undefined
-          let stopped = false
-          let timer = 0
-          const play = () => {
-            if (stopped) return
-            buzzer.alarm()
-            timer = window.setTimeout(play, REPEAT_MS)
+          if (level !== 'waiting') {
+            setAlarmOn(false)
+            return undefined
           }
-          play()
+          let stopped = false
+          let litTimer = 0
+          let cycleTimer = 0
+          const cycle = () => {
+            if (stopped) return
+            setAlarmOn(true)
+            if (!mutedRef.current) buzzer.alarm()
+            litTimer = window.setTimeout(() => {
+              if (!stopped) setAlarmOn(false)
+            }, Math.round(BURST_SECONDS * 1000))
+            cycleTimer = window.setTimeout(cycle, REPEAT_MS)
+          }
+          cycle()
           return () => {
             stopped = true
-            window.clearTimeout(timer)
+            window.clearTimeout(litTimer)
+            window.clearTimeout(cycleTimer)
+            setAlarmOn(false)
           }
-        }, [level, muted])
+        }, [level])
 
         React.useEffect(() => {
           const unlock = () => {
             buzzer.unlock()
             setSoundUnlocked(true)
-            if (levelRef.current === 'waiting' && !mutedRef.current) buzzer.alarm()
           }
           window.addEventListener('pointerdown', unlock, { once: true, capture: true })
           window.addEventListener('keydown', unlock, { once: true, capture: true })
@@ -829,7 +843,7 @@ window.__ModuleLoader__.load({
                 openPanel()
               },
             },
-            towerSvg(level, size, greenOn),
+            towerSvg(level, size, greenOn, alarmOn),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
         )
