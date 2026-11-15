@@ -249,11 +249,11 @@ window.__ModuleLoader__.load({
 
       const gens = []
       for (const [name, stops] of [
-        ['sl-red-off', ['#3f0d0b', '#8a211b', '#5f120f', '#300806']],
+        ['sl-red-off', ['#260b09', '#4a1512', '#370f0c', '#190605']],
         ['sl-red-on', ['#d1382f', '#ff8d80', '#ff3b30', '#d2271e', '#8d100b']],
-        ['sl-amber-off', ['#3d2a04', '#8a620f', '#5c4207', '#2c1d03']],
+        ['sl-amber-off', ['#241b03', '#453508', '#352806', '#170f02']],
         ['sl-amber-on', ['#d9a52a', '#ffe08a', '#ffb020', '#d68a00', '#8a5600']],
-        ['sl-green-off', ['#0c3a20', '#1e6b3b', '#114a29', '#082b17']],
+        ['sl-green-off', ['#071c10', '#0f3421', '#0a2818', '#041309']],
         ['sl-green-on', ['#3fbf68', '#a8f5c1', '#34c759', '#17903f', '#0c5c28']],
       ]) {
         gens.push(
@@ -275,9 +275,9 @@ window.__ModuleLoader__.load({
             ? h('rect', { x: 9, y: y - 2, width: 52, height: 40, rx: 5, fill: `url(#sl-${color}-on)`, opacity: 0.62, filter: 'url(#sl-glow)' })
             : null,
           h('rect', { x: 10, y, width: 50, height: 36, fill: `url(#sl-${color}-${active ? 'on' : 'off'})` }),
-          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-ribs)' }),
-          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-gloss)' }),
-          h('rect', { x: 10, y, width: 50, height: 0.8, fill: '#fff', opacity: 0.3 }),
+          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-ribs)', opacity: active ? 1 : 0.45 }),
+          h('rect', { x: 10, y, width: 50, height: 36, fill: 'url(#sl-gloss)', opacity: active ? 1 : 0.28 }),
+          h('rect', { x: 10, y, width: 50, height: 0.8, fill: '#fff', opacity: active ? 0.3 : 0.07 }),
         )
 
       const spacer = (key, y) =>
