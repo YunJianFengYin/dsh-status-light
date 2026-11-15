@@ -1,6 +1,9 @@
 /**
  * Host half of the factory status-light bundle.
  *
+ * Copyright (C) 2026 YunJianFengYin
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
  * It watches every conversation this profile can list, remembers which ones are
  * currently blocked on the user (a question, an approval prompt), and serves one
  * merged snapshot to the Web UI over a small read-only route. The browser half

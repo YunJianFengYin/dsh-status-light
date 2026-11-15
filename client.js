@@ -1,3 +1,9 @@
+/**
+ * Browser half of the factory status-light bundle.
+ *
+ * Copyright (C) 2026 YunJianFengYin
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 window.__ModuleLoader__.load({
   id: '@local/dsh-status-light',
   factory(require) {
