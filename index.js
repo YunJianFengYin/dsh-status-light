@@ -20,7 +20,7 @@ const MAX_LABEL_LENGTH = 90
 /** Session key used when a wait carries no resolvable conversation identity. */
 const FALLBACK_SESSION = 'waiting:unresolved'
 /** Tools whose whole execution window means "the agent is blocked on the user". */
-const HUMAN_WAIT_TOOLS = new Set(['ask_user_question'])
+const HUMAN_WAIT_TOOLS = new Set(['ask_user_question', 'exit_plan_mode'])
 /** A pending approval that never reaches execution is dropped after this long. */
 const ASK_WINDOW_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -36,6 +36,8 @@ export function apply(ctx) {
   let tokenSeq = 0
   /** Cached conversation rows; the waiting flags merge in live on every request. */
   const listCache = { at: 0, rows: [] }
+  /** Last non-empty pending-wait classification, kept for diagnosis. */
+  let lastActive = null
   /** Calls whose pre-execute decision is `ask`: the user is being asked for approval. */
   const askWindows = new Map()
 
@@ -176,6 +178,85 @@ export function apply(ctx) {
     return rows
   }
 
+  /** Unmatched `approval/asked` entries per Session, cached by log position. */
+  const approvalCache = new Map()
+
+  /**
+   * Approvals are logged as an `approval/asked` + `approval/decided` audit pair,
+   * so an unmatched asked event is exactly "the user is being asked right now".
+   */
+  function pendingApproval(session) {
+    if (!session || typeof session.snapshotEvents !== 'function') return { pending: 0, label: '' }
+    const seq = typeof session.seq === 'number' ? session.seq : -1
+    const cached = approvalCache.get(session.id)
+    if (cached && cached.seq === seq) return cached.value
+
+    let pending = 0
+    let label = ''
+    const events = session.snapshotEvents()
+    const first = Math.max(0, events.length - 2000)
+    for (let index = first; index < events.length; index += 1) {
+      const event = events[index]
+      if (!event || typeof event.type !== 'string') continue
+      if (event.type === 'approval/asked') {
+        pending += 1
+        const data = event.data || {}
+        label = String(data.toolName ?? data.tool ?? data.reason ?? '')
+      } else if (event.type === 'approval/decided') {
+        pending = Math.max(0, pending - 1)
+        if (pending === 0) label = ''
+      }
+    }
+    const value = { pending, label }
+    approvalCache.set(session.id, { seq, value })
+    return value
+  }
+
+  /**
+   * Pending human waits of every live conversation: approval audit pairs, the
+   * durable `userQuestions` projection (timed tool questions), and nothing else.
+   */
+  function activeQuestions() {
+    const registry = ctx.get('sessionProjections')
+    let agents = []
+    try {
+      agents = ctx.get('agents')?.list?.() ?? []
+    } catch (error) {
+      return []
+    }
+    const found = []
+    for (const agent of agents) {
+      const session = agent?.session
+      if (!session) continue
+      const id = String(agent.id)
+      let kind = ''
+      let label = ''
+
+      const approval = pendingApproval(session)
+      if (approval.pending > 0) {
+        kind = 'approval'
+        label = truncate(approval.label)
+      }
+
+      if (registry && typeof registry.snapshot === 'function') {
+        let value
+        try {
+          value = registry.snapshot(session, ['userQuestions'])?.values?.userQuestions
+        } catch (error) {
+          value = undefined
+        }
+        const active = Array.isArray(value?.active) ? value.active : []
+        if (active.length > 0 && kind !== 'approval') {
+          kind = questionKind(active[0])
+          label = questionText(active[0])
+        }
+      }
+
+      if (kind) found.push({ id, kind, label })
+    }
+    return found
+  }
+
   async function collect() {
     const now = Date.now()
     for (const [callId, entry] of askWindows) {
@@ -189,8 +270,22 @@ export function apply(ctx) {
     const titles = new Map(rows.map((row) => [row.id, row.title]))
 
     const waiting = []
+    const waitingIds = new Set()
+    const projected = activeQuestions()
+    if (projected.length > 0) lastActive = { at: Date.now(), items: projected }
+    for (const item of projected) {
+      waitingIds.add(item.id)
+      waiting.push({
+        id: item.id,
+        title: titles.get(item.id) ?? '',
+        kind: item.kind,
+        label: item.label,
+        since: 0,
+      })
+    }
     for (const [sessionId, stack] of waits) {
-      if (stack.length === 0) continue
+      if (stack.length === 0 || waitingIds.has(sessionId)) continue
+      waitingIds.add(sessionId)
       const current = stack[stack.length - 1]
       waiting.push({
         id: sessionId,
@@ -203,7 +298,7 @@ export function apply(ctx) {
     waiting.sort((left, right) => left.since - right.since)
 
     // A waiting conversation outranks its own run: only count the rest as working.
-    const working = rows.filter((row) => row.running && !(waits.get(row.id)?.length > 0))
+    const working = rows.filter((row) => row.running && !waitingIds.has(row.id))
     return {
       version: 1,
       level: waiting.length > 0 ? 'waiting' : working.length > 0 ? 'running' : 'idle',
@@ -219,7 +314,64 @@ export function apply(ctx) {
     }
   }
 
+  /** Temporary host-side diagnostics for the pending-question projection. */
+  function hostProbe() {
+    const out = { registry: false, agents: [], userQuestionKeys: null, lastActive }
+    const registry = ctx.get('sessionProjections')
+    out.registry = Boolean(registry && typeof registry.snapshot === 'function')
+    let list = []
+    try {
+      list = ctx.get('agents')?.list?.() ?? []
+    } catch (error) {
+      out.listError = String(error)
+    }
+    for (const agent of list) {
+      const entry = { id: String(agent?.id ?? ''), hasSession: Boolean(agent?.session) }
+      try {
+        if (agent?.session) {
+          entry.approvalPending = pendingApproval(agent.session).pending
+          let asked = 0
+          let decided = 0
+          for (const event of agent.session.snapshotEvents()) {
+            if (event?.type === 'approval/asked') asked += 1
+            else if (event?.type === 'approval/decided') decided += 1
+          }
+          entry.approvalAsked = asked
+          entry.approvalDecided = decided
+        }
+      } catch (error) {
+        entry.approvalError = String(error?.message ?? error)
+      }
+      try {
+        if (out.registry && agent?.session) entry.snapshot = registry.snapshot(agent.session, ['userQuestions'])
+      } catch (error) {
+        entry.error = String(error?.message ?? error)
+      }
+      out.agents.push(entry)
+    }
+    try {
+      const questions = ctx.get('userQuestions')
+      out.userQuestionKeys = questions ? Object.keys(questions) : null
+    } catch (error) {
+      out.userQuestionKeys = String(error)
+    }
+    return out
+  }
+
   ctx.inject(['webServer'], (web) => {
+    web.effect(
+      () =>
+        web.webServer.register({
+          kind: 'exact',
+          path: '/_dsh/status-light/probe',
+          resource: async () =>
+            new Response(JSON.stringify(hostProbe()), {
+              headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+            }),
+        }),
+      'dsh-status-light: probe route',
+    )
+
     web.effect(
       () =>
         web.webServer.register({
@@ -253,6 +405,29 @@ export function apply(ctx) {
       'dsh-status-light: aggregate state route',
     )
   })
+}
+
+/** Classify one pending question as a plain question, an approval, or a plan review. */
+function questionKind(entry) {
+  const kinds = []
+  if (Array.isArray(entry?.questions)) {
+    for (const question of entry.questions) kinds.push(question?.intent?.kind)
+  }
+  kinds.push(entry?.intent?.kind, entry?.kind, entry?.type, entry?.state)
+  if (kinds.includes('plan-review')) return 'plan-review'
+  if (kinds.includes('approval')) return 'approval'
+  return 'question'
+}
+
+/** Read the first question text of one pending question entry. */
+function questionText(entry) {
+  const list = Array.isArray(entry?.questions) ? entry.questions : []
+  for (const question of list) {
+    if (typeof question?.question === 'string' && question.question.trim().length > 0) return truncate(question.question)
+  }
+  if (typeof entry?.question === 'string' && entry.question.trim().length > 0) return truncate(entry.question)
+  if (typeof entry?.title === 'string' && entry.title.trim().length > 0) return truncate(entry.title)
+  return ''
 }
 
 /** Extract a display title from a Session summary without depending on one projection shape. */
