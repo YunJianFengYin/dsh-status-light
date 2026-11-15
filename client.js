@@ -8,6 +8,7 @@ window.__ModuleLoader__.load({
     const STATE_URL = '/_dsh/status-light/state.json'
     const MUTED_KEY = 'dsh.status-light.muted'
     const VOLUME_KEY = 'dsh.status-light.volume'
+    const SIZE_KEY = 'dsh.status-light.size'
     const POLL_MS = 700
     const REACHABLE_FAILURES = 3
     /** One fixed buzzer frequency; no sweep, so it reads as a plant buzzer. */
@@ -21,7 +22,10 @@ window.__ModuleLoader__.load({
     const MAX_GAIN = 0.16
     const DEFAULT_VOLUME = 0.45
     /** Tower footprint in CSS px; the drawing keeps the reference proportions. */
-    const TOWER_WIDTH = 40
+    const DEFAULT_TOWER_WIDTH = 40
+    const MIN_TOWER_WIDTH = 24
+    const MAX_TOWER_WIDTH = 88
+    const TOWER_STEP = 4
 
     const DICT = {
       en: {
@@ -37,6 +41,7 @@ window.__ModuleLoader__.load({
         mute: 'Mute the buzzer',
         unmute: 'Turn the buzzer on',
         volume: 'Buzzer volume',
+        size: 'Tower size',
         settings: 'Status light settings',
         buzzer: 'Buzzer',
         preview: 'Test',
@@ -58,6 +63,7 @@ window.__ModuleLoader__.load({
         mute: '静音蜂鸣器',
         unmute: '开启蜂鸣器',
         volume: '蜂鸣器音量',
+        size: '信号塔大小',
         settings: '信号灯设置',
         buzzer: '蜂鸣器',
         preview: '试听',
@@ -208,7 +214,7 @@ window.__ModuleLoader__.load({
   transition: transform 0.16s ease;
 }
 .dsh-sl-switch.is-on .dsh-sl-switch-knob { transform: translateX(16px); }
-.dsh-sl-volume {
+.dsh-sl-range {
   pointer-events: auto;
   flex: 1;
   min-width: 0;
@@ -217,7 +223,7 @@ window.__ModuleLoader__.load({
   accent-color: var(--dsw-alias-brand-primary, #4d8dff);
   cursor: pointer;
 }
-.dsh-sl-volume:focus-visible {
+.dsh-sl-range:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff);
   outline-offset: 2px;
   border-radius: 4px;
@@ -244,7 +250,7 @@ window.__ModuleLoader__.load({
 `
 
     /** The reference tower: 50 mm lenses, 36 mm lens height, 6 mm spacers, 56 mm body. */
-    function towerSvg(level) {
+    function towerSvg(level, width) {
       const on = { red: level === 'waiting', amber: level === 'running', green: level === 'idle' }
 
       const gens = []
@@ -293,8 +299,8 @@ window.__ModuleLoader__.load({
         {
           className: 'dsh-sl-svg',
           viewBox: '0 0 70 200',
-          width: TOWER_WIDTH,
-          height: Math.round((TOWER_WIDTH * 200) / 70),
+          width,
+          height: Math.round((width * 200) / 70),
           'aria-hidden': true,
           focusable: 'false',
         },
@@ -465,6 +471,24 @@ window.__ModuleLoader__.load({
         }
       }
 
+      function readSize() {
+        try {
+          const raw = Number(window.localStorage.getItem(SIZE_KEY))
+          if (Number.isFinite(raw) && raw >= MIN_TOWER_WIDTH && raw <= MAX_TOWER_WIDTH) return Math.round(raw)
+        } catch (error) {
+          /* storage unavailable */
+        }
+        return DEFAULT_TOWER_WIDTH
+      }
+
+      function writeSize(value) {
+        try {
+          window.localStorage.setItem(SIZE_KEY, String(Math.round(value)))
+        } catch (error) {
+          /* storage unavailable */
+        }
+      }
+
       function dictionary() {
         let id = ''
         try {
@@ -489,6 +513,7 @@ window.__ModuleLoader__.load({
         const [snapshot, setSnapshot] = React.useState(null)
         const [muted, setMuted] = React.useState(readMuted)
         const [volume, setVolume] = React.useState(readVolume)
+        const [size, setSize] = React.useState(readSize)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
         const [panelOpen, setPanelOpen] = React.useState(false)
         const rootRef = React.useRef(null)
@@ -652,6 +677,13 @@ window.__ModuleLoader__.load({
           if (!muted && volume > 0) buzzer.test()
         }
 
+        const changeSize = (event) => {
+          const raw = Number(event.target.value) || DEFAULT_TOWER_WIDTH
+          const next = Math.round(Math.max(MIN_TOWER_WIDTH, Math.min(MAX_TOWER_WIDTH, raw)))
+          setSize(next)
+          writeSize(next)
+        }
+
         const openPanel = () => {
           buzzer.unlock()
           setSoundUnlocked(true)
@@ -692,7 +724,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dsh-sl-row-label' }, dict.volume),
                 h('input', {
                   type: 'range',
-                  className: 'dsh-sl-volume',
+                  className: 'dsh-sl-range',
                   min: 0,
                   max: 100,
                   step: 5,
@@ -708,6 +740,23 @@ window.__ModuleLoader__.load({
                   onKeyUp: previewVolume,
                 }),
                 h('span', { className: 'dsh-sl-row-value' }, `${percent}%`),
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.size),
+                h('input', {
+                  type: 'range',
+                  className: 'dsh-sl-range',
+                  min: MIN_TOWER_WIDTH,
+                  max: MAX_TOWER_WIDTH,
+                  step: TOWER_STEP,
+                  value: size,
+                  'aria-label': dict.size,
+                  'aria-valuetext': `${size}px`,
+                  onChange: changeSize,
+                }),
+                h('span', { className: 'dsh-sl-row-value' }, `${size}px`),
               ),
               h('div', { className: 'dsh-sl-row' }, h('button', { type: 'button', className: 'dsh-sl-test', onClick: previewVolume }, dict.preview)),
             )
@@ -734,7 +783,7 @@ window.__ModuleLoader__.load({
                 openPanel()
               },
             },
-            towerSvg(level),
+            towerSvg(level, size),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
         )
