@@ -367,7 +367,7 @@ window.__ModuleLoader__.load({
       }
 
       /** One steady tone at one frequency: no sweep, no double beep. */
-      function burst(seconds) {
+      function tone(offset, seconds) {
         const context = ensure()
         if (!context) return
         if (context.state === 'suspended') context.resume().catch(() => {})
@@ -375,8 +375,8 @@ window.__ModuleLoader__.load({
         const peak = MAX_GAIN * Math.max(0, Math.min(1, volume))
         if (!(peak > 0.0002)) return
 
-        const start = context.currentTime + 0.01
-        const end = start + Math.max(0.2, seconds)
+        const start = context.currentTime + 0.01 + Math.max(0, offset)
+        const end = start + Math.max(0.12, seconds)
         const release = end - 0.06
         const oscillator = context.createOscillator()
         const filter = context.createBiquadFilter()
@@ -417,10 +417,20 @@ window.__ModuleLoader__.load({
           if (context && context.state === 'suspended') context.resume().catch(() => {})
         },
         alarm() {
-          burst(BURST_SECONDS)
+          tone(0, BURST_SECONDS)
+        },
+        /**
+         * A conversation stopped running while others may keep working:
+         * (0.3 on + 0.3 off + 0.3 on) + 0.5 off + (0.3 on + 0.3 off + 0.3 on).
+         */
+        idle() {
+          tone(0, 0.3)
+          tone(0.6, 0.3)
+          tone(1.4, 0.3)
+          tone(2.0, 0.3)
         },
         test() {
-          burst(0.24)
+          tone(0, 0.24)
         },
         close() {
           closed = true
@@ -520,6 +530,7 @@ window.__ModuleLoader__.load({
         const rootRef = React.useRef(null)
         const levelRef = React.useRef('unknown')
         const mutedRef = React.useRef(muted)
+        const seenBeeps = React.useRef(null)
         const dict = dictionary()
 
         React.useEffect(() => {
@@ -544,6 +555,13 @@ window.__ModuleLoader__.load({
               const next = await response.json()
               if (stopped) return
               failures = 0
+              const beeps = typeof next?.idleBeeps === 'number' ? next.idleBeeps : null
+              if (beeps !== null) {
+                const previous = seenBeeps.current
+                seenBeeps.current = beeps
+                // A conversation just stopped running, even if others keep working.
+                if (previous !== null && beeps > previous && !mutedRef.current) buzzer.idle()
+              }
               setSnapshot(next)
             } catch (error) {
               if (stopped) return

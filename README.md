@@ -30,6 +30,7 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 - 左键或右键点击信号塔：打开「信号灯设置」面板，里面是蜂鸣器静音开关、音量滑块（0–100%，松手试听）、**信号塔大小滑块（24–88 px）** 和试听按钮；点面板外面或按 Esc 关闭。
 - 设置记在浏览器 `localStorage`（`dsh.status-light.muted`、`dsh.status-light.volume`、`dsh.status-light.size`）。
 - 进入空闲时绿灯先闪 3 下（亮 1.2 s、灭 0.5 s），然后转为常亮。
+- **有对话从“运行中”变为空闲时**会短促提示两声：`0.3 s 响 / 0.3 s 停 / 0.3 s 响`，停 0.5 s 后再重复一次；即使其他对话仍在运行（黄灯）也会响。静音时同红灯一样不出声。
 - `/_dsh/status-light/probe` 是只读诊断端点：列出每个活动会话的待审批数与 `userQuestions` 投影，排查“该响没响”时用。
 
 ## 结构

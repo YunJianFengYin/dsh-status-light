@@ -38,6 +38,10 @@ export function apply(ctx) {
   const listCache = { at: 0, rows: [] }
   /** Last non-empty pending-wait classification, kept for diagnosis. */
   let lastActive = null
+  /** Running flag of every conversation at the previous read. */
+  let runningBefore = null
+  /** Monotonic count of conversations that stopped running. */
+  let idleBeeps = 0
   /** Calls whose pre-execute decision is `ask`: the user is being asked for approval. */
   const askWindows = new Map()
 
@@ -299,10 +303,22 @@ export function apply(ctx) {
 
     // A waiting conversation outranks its own run: only count the rest as working.
     const working = rows.filter((row) => row.running && !waitingIds.has(row.id))
+
+    // Count conversations that stopped running, so the browser can chirp once each.
+    const runningNow = new Map()
+    for (const row of rows) runningNow.set(row.id, row.running)
+    if (runningBefore !== null) {
+      for (const [id, wasRunning] of runningBefore) {
+        if (wasRunning && runningNow.get(id) === false) idleBeeps += 1
+      }
+    }
+    runningBefore = runningNow
+
     return {
       version: 1,
       level: waiting.length > 0 ? 'waiting' : working.length > 0 ? 'running' : 'idle',
       at: Date.now(),
+      idleBeeps,
       counts: {
         total: rows.length,
         waiting: waiting.length,
