@@ -421,13 +421,13 @@ window.__ModuleLoader__.load({
         },
         /**
          * A conversation stopped running while others may keep working:
-         * (0.3 on + 0.3 off + 0.3 on) + 0.5 off + (0.3 on + 0.3 off + 0.3 on).
+         * (0.3 on + 0.1 off + 0.3 on) + 0.3 off + (0.3 on + 0.1 off + 0.3 on).
          */
         idle() {
           tone(0, 0.3)
-          tone(0.6, 0.3)
+          tone(0.4, 0.3)
+          tone(1.0, 0.3)
           tone(1.4, 0.3)
-          tone(2.0, 0.3)
         },
         test() {
           tone(0, 0.24)
