@@ -250,8 +250,8 @@ window.__ModuleLoader__.load({
 `
 
     /** The reference tower: 50 mm lenses, 36 mm lens height, 6 mm spacers, 56 mm body. */
-    function towerSvg(level, width) {
-      const on = { red: level === 'waiting', amber: level === 'running', green: level === 'idle' }
+    function towerSvg(level, width, greenOn) {
+      const on = { red: level === 'waiting', amber: level === 'running', green: level === 'idle' && greenOn !== false }
 
       const gens = []
       for (const [name, stops] of [
@@ -514,6 +514,7 @@ window.__ModuleLoader__.load({
         const [muted, setMuted] = React.useState(readMuted)
         const [volume, setVolume] = React.useState(readVolume)
         const [size, setSize] = React.useState(readSize)
+        const [greenOn, setGreenOn] = React.useState(true)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
         const [panelOpen, setPanelOpen] = React.useState(false)
         const rootRef = React.useRef(null)
@@ -562,6 +563,33 @@ window.__ModuleLoader__.load({
         const level = snapshot && typeof snapshot.level === 'string' ? snapshot.level : 'unknown'
         levelRef.current = level
         mutedRef.current = muted
+
+        // Entering idle: three blinks (1.2 s lit, 0.5 s dark), then steady green.
+        React.useEffect(() => {
+          if (level !== 'idle') {
+            setGreenOn(true)
+            return undefined
+          }
+          let cancelled = false
+          const timers = []
+          for (let index = 0; index < 3; index += 1) {
+            const start = index * 1700
+            timers.push(
+              window.setTimeout(() => {
+                if (!cancelled) setGreenOn(false)
+              }, start + 1200),
+            )
+            timers.push(
+              window.setTimeout(() => {
+                if (!cancelled) setGreenOn(true)
+              }, start + 1700),
+            )
+          }
+          return () => {
+            cancelled = true
+            for (const timer of timers) window.clearTimeout(timer)
+          }
+        }, [level])
 
         React.useEffect(() => {
           if (muted || level !== 'waiting') return undefined
@@ -783,7 +811,7 @@ window.__ModuleLoader__.load({
                 openPanel()
               },
             },
-            towerSvg(level, size),
+            towerSvg(level, size, greenOn),
           ),
           h('span', { className: 'dsh-sl-caption' }, caption),
         )
