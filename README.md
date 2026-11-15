@@ -2,9 +2,12 @@
 
 A factory-style stack light for the DeepSeek Harness Web UI: it merges the state of every conversation in the workspace into one light, and sounds a buzzer when a conversation is blocked on you.
 
-把 Harness 里所有对话的状态做成一座工厂三色信号塔，挂在窗口右下角；有对话被提问 / 授权 / 计划审阅打断时亮红灯并蜂鸣。
+把 Harness 里所有对话的状态做成一座工厂三色指示灯，悬浮在窗口右下角；有对话被提问 / 授权 / 计划审阅打断时亮红灯并蜂鸣。
 
-<img width="141" height="389" alt="PixPin_2026-11-15_15-33-05" src="https://github.com/user-attachments/assets/8ccf47e2-35af-46c7-b15e-3fd2de4faa1b" />
+<img width="141" height="389" alt="PixPin_2026-11-15_15-33-05" src="https://github.com/user-attachments/assets/8ccf47e2-35af-46c7-b15e-3fd2de4faa1b" /><img width="112" height="382" alt="PixPin_2026-11-15_15-46-34" src="https://github.com/user-attachments/assets/959032ab-1679-4511-9921-a872579c4c24" /> https://github.com/user-attachments/assets/67405f66-87c3-471b-b92a-735012a75f86
+
+
+
 
 | 灯 | 含义 | 声音 |
 | --- | --- | --- |
