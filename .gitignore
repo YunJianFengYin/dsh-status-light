@@ -1,11 +1,20 @@
+# dependencies and local tooling
 node_modules/
 .deploy/
 *.log
 .DS_Store
 Thumbs.db
+
+# development and marketing material users do not need
+promo/
+tools/
+submission/
+assets/tower-source.png
+assets/icon.png
+
+# render intermediates
 promo/frames/
 promo/_test/
 promo/_check/
 promo/audio.wav
 promo/dsh-status-light-bgm.wav
-tools

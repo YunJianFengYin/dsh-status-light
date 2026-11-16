@@ -39,21 +39,12 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 - **有对话从“运行中”变为空闲时**会短促提示两声：`0.3 s 响 / 0.1 s 停 / 0.3 s 响`，停 0.3 s 后再重复一次（共 4 声，约 1.7 秒）；即使其他对话仍在运行（黄灯）也会响。静音时同红灯一样不出声。
 - `/_dsh/status-light/probe` 是只读诊断端点：列出每个活动会话的待审批数与 `userQuestions` 投影，排查“该响没响”时用。
 
-## 宣传视频 / Promo
-
-- [promo/dsh-status-light-promo-scored.mp4](promo/dsh-status-light-promo-scored.mp4) — 19 秒成片：科技感 BGM + 原片蜂鸣/提示音；BGM 在提示音响起的约 1 秒里自动压低 9 dB（剪辑台工程 `prj_b017qa0s`，可继续调）。
-- [promo/dsh-status-light-promo.mp4](promo/dsh-status-light-promo.mp4) — 无 BGM 的原始版，也是配乐工程的画面来源（`tools/make-promo.py` 生成）。
-- [promo/dsh-status-light-bgm-v2.wav](promo/dsh-status-light-bgm-v2.wav) — BGM 单独输出（19.05 s / 48 kHz 立体声）；谱子 [promo/bgm-score-v2.json](promo/bgm-score-v2.json)，由 [tools/make-bgm-score.py](tools/make-bgm-score.py) 生成（120 BPM、D 小调、主音/低音/鼓/铺底/点缀五轨）。
-
 ## 结构
 
 - `index.js`：Host 半。等待状态取自三处：会话日志里**未配对的 `approval/asked`**（工具审批、沙箱升权——只要人类还在等就是待定）、`userQuestions` 会话投影的 `active`（定时提问、计划审阅）、`ask_user_question` 工具的执行窗口（阻塞提问）；再用 `sessionController.list()` 汇总运行状态，在 `/_dsh/status-light/state.json` 上提供只读快照。
 - `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，用 SVG 画信号塔并用 Web Audio 合成蜂鸣器音；右键（或左键）信号塔弹出设置面板。
 - `locale/en.json`、`locale/zh.json`：插件管理器里显示的标题与说明。
-- `icon.svg`：插件管理器使用的图标；`assets/icon.png` 是市场卡片用的位图图标，由 `tools/make-icon.py` 生成。
-- `assets/icon.ico`：Windows 用的多尺寸图标（16/24/32/48/64/128/256），由 `tools/make-ico.py` 从 `assets/tower-source.png`（信号塔截图）生成；`assets/icon-256.png` 是同图预览。
-- `promo/`：宣传视频（mp4）与封面帧；`tools/make-promo.py` 负责渲染帧、合成蜂鸣/提示音并调用 ffmpeg 封装。
-- `submission/YunJianFengYin__dsh-status-light.yml`：提交到 awesome-dsh-plugin 列表的条目文件（放到该仓库的 `data/plugins/` 下）。
+- `icon.svg`：插件管理器使用的图标；`assets/icon-256.png` 是市场卡片用的位图图标；`assets/icon.ico` 是 Windows 快捷方式用的多尺寸图标。
 - `cordis.patch.yml`：插件装载补丁（`dsh.bundle.patch` 指向它）。
 
 ## 说明
