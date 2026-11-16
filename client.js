@@ -13,8 +13,17 @@ window.__ModuleLoader__.load({
     /** Read-only aggregate route served by this bundle's Host half. */
     const STATE_URL = '/_dsh/status-light/state.json'
     const MUTED_KEY = 'dsh.status-light.muted'
-    const VOLUME_KEY = 'dsh.status-light.volume'
+    /** Legacy single volume, still read once to seed both new sliders. */
+    const LEGACY_VOLUME_KEY = 'dsh.status-light.volume'
+    const ALARM_VOLUME_KEY = 'dsh.status-light.volume.alarm'
+    const IDLE_VOLUME_KEY = 'dsh.status-light.volume.idle'
     const SIZE_KEY = 'dsh.status-light.size'
+    /** Custom sound files live in IndexedDB, keyed by role. */
+    const SOUND_DB = 'dsh-status-light'
+    const SOUND_STORE = 'sounds'
+    const SOUND_ALARM = 'alarm'
+    const SOUND_IDLE = 'idle'
+    const MAX_SOUND_BYTES = 5 * 1024 * 1024
     const POLL_MS = 700
     const REACHABLE_FAILURES = 3
     /** One fixed buzzer frequency; no sweep, so it reads as a plant buzzer. */
@@ -47,10 +56,19 @@ window.__ModuleLoader__.load({
         mute: 'Mute the buzzer',
         unmute: 'Turn the buzzer on',
         volume: 'Buzzer volume',
+        alarmVolume: 'Red alarm volume',
+        idleVolume: 'Turn-green volume',
+        alarmSound: 'Red alarm sound',
+        idleSound: 'Turn-green sound',
+        defaultSound: 'Default',
+        chooseFile: 'Choose…',
+        reset: 'Reset',
+        tooLarge: 'File exceeds 5 MB',
         size: 'Tower size',
         settings: 'Status light settings',
         buzzer: 'Buzzer',
-        preview: 'Test',
+        previewAlarm: 'Test red',
+        previewIdle: 'Test green',
         close: 'Close settings',
         hint: 'Left or right click opens settings',
         soundLocked: 'Click the page once to allow sound',
@@ -69,10 +87,19 @@ window.__ModuleLoader__.load({
         mute: '静音蜂鸣器',
         unmute: '开启蜂鸣器',
         volume: '蜂鸣器音量',
+        alarmVolume: '红灯音效音量',
+        idleVolume: '转绿提示音量',
+        alarmSound: '红灯音效',
+        idleSound: '转绿提示音',
+        defaultSound: '默认',
+        chooseFile: '选择…',
+        reset: '恢复默认',
+        tooLarge: '文件超过 5 MB',
         size: '信号塔大小',
         settings: '信号灯设置',
         buzzer: '蜂鸣器',
-        preview: '试听',
+        previewAlarm: '试听红灯',
+        previewIdle: '试听转绿',
         close: '关闭设置',
         hint: '左键或右键打开设置',
         soundLocked: '点一下页面以开启声音',
@@ -126,7 +153,7 @@ window.__ModuleLoader__.load({
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
-  width: 212px;
+  width: 244px;
   padding: 10px 12px 12px;
   border: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.32));
   border-radius: 12px;
@@ -235,7 +262,6 @@ window.__ModuleLoader__.load({
 }
 .dsh-sl-test {
   pointer-events: auto;
-  margin-left: auto;
   padding: 3px 12px;
   border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.4));
   border-radius: 7px;
@@ -245,6 +271,44 @@ window.__ModuleLoader__.load({
   cursor: pointer;
 }
 .dsh-sl-test:hover { background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08)); }
+.dsh-sl-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.dsh-sl-file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--dsw-alias-label-primary, #e8eaed);
+  font-size: 11px;
+}
+.dsh-sl-link {
+  pointer-events: auto;
+  flex: none;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #9aa0a6);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.dsh-sl-link:hover {
+  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.08));
+  color: var(--dsw-alias-label-primary, #e8eaed);
+}
+.dsh-sl-link:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d8dff); outline-offset: 2px; }
+.dsh-sl-notice {
+  margin-top: 8px;
+  color: var(--dsw-alias-state-warn-primary, #ffb020);
+  font-size: 11px;
+}
 @keyframes dsh-sl-blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.3; } }
 @keyframes dsh-sl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
 @media (prefers-reduced-motion: reduce) {
@@ -359,7 +423,12 @@ window.__ModuleLoader__.load({
     function createBuzzer() {
       let audio = null
       let closed = false
-      let volume = DEFAULT_VOLUME
+      let alarmVolume = DEFAULT_VOLUME
+      let idleVolume = DEFAULT_VOLUME
+      let alarmUrl = null
+      let idleUrl = null
+      /** One cached element per custom sound, so a beep does not re-fetch it. */
+      const players = new Map()
 
       function ensure() {
         if (closed) return null
@@ -374,13 +443,17 @@ window.__ModuleLoader__.load({
         return audio
       }
 
+      function clamp01(value) {
+        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : DEFAULT_VOLUME
+      }
+
       /** One steady tone at one frequency: no sweep, no double beep. */
-      function tone(offset, seconds) {
+      function tone(offset, seconds, level) {
         const context = ensure()
         if (!context) return
         if (context.state === 'suspended') context.resume().catch(() => {})
         if (context.state !== 'running') return
-        const peak = MAX_GAIN * Math.max(0, Math.min(1, volume))
+        const peak = MAX_GAIN * clamp01(level)
         if (!(peak > 0.0002)) return
 
         const start = context.currentTime + 0.01 + Math.max(0, offset)
@@ -416,32 +489,81 @@ window.__ModuleLoader__.load({
         }
       }
 
+      /** Play a user-supplied sound; false means "no file, use the default tone". */
+      function playFile(url, level) {
+        if (!url) return false
+        let element = players.get(url)
+        if (!element) {
+          try {
+            element = new Audio(url)
+            element.preload = 'auto'
+          } catch (error) {
+            return false
+          }
+          players.set(url, element)
+        }
+        try {
+          element.currentTime = 0
+        } catch (error) {
+          /* not seekable yet */
+        }
+        element.volume = clamp01(level)
+        try {
+          const played = element.play()
+          if (played && typeof played.catch === 'function') played.catch(() => {})
+        } catch (error) {
+          /* autoplay blocked; the page gesture unlock will handle the next one */
+        }
+        return true
+      }
+
       return {
-        setVolume(next) {
-          volume = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : DEFAULT_VOLUME
+        setAlarmVolume(next) {
+          alarmVolume = clamp01(next)
+        },
+        setIdleVolume(next) {
+          idleVolume = clamp01(next)
+        },
+        setAlarmFile(url) {
+          alarmUrl = url || null
+        },
+        setIdleFile(url) {
+          idleUrl = url || null
         },
         unlock() {
           const context = ensure()
           if (context && context.state === 'suspended') context.resume().catch(() => {})
         },
         alarm() {
-          tone(0, BURST_SECONDS)
+          if (!playFile(alarmUrl, alarmVolume)) tone(0, BURST_SECONDS, alarmVolume)
         },
         /**
          * A conversation stopped running while others may keep working:
          * (0.3 on + 0.1 off + 0.3 on) + 0.3 off + (0.3 on + 0.1 off + 0.3 on).
          */
         idle() {
-          tone(0, 0.3)
-          tone(0.4, 0.3)
-          tone(1.0, 0.3)
-          tone(1.4, 0.3)
+          if (playFile(idleUrl, idleVolume)) return
+          tone(0, 0.3, idleVolume)
+          tone(0.4, 0.3, idleVolume)
+          tone(1.0, 0.3, idleVolume)
+          tone(1.4, 0.3, idleVolume)
         },
-        test() {
-          tone(0, 0.24)
+        testAlarm() {
+          if (!playFile(alarmUrl, alarmVolume)) tone(0, 0.5, alarmVolume)
+        },
+        testIdle() {
+          if (!playFile(idleUrl, idleVolume)) tone(0, 0.3, idleVolume)
         },
         close() {
           closed = true
+          for (const element of players.values()) {
+            try {
+              element.pause()
+            } catch (error) {
+              /* already gone */
+            }
+          }
+          players.clear()
           if (audio) {
             try {
               audio.close()
@@ -452,6 +574,66 @@ window.__ModuleLoader__.load({
           }
         },
       }
+    }
+
+    /** Small IndexedDB store for the optional custom sound files. */
+    function openSoundDb() {
+      return new Promise((resolve, reject) => {
+        let request
+        try {
+          request = window.indexedDB.open(SOUND_DB, 1)
+        } catch (error) {
+          reject(error)
+          return
+        }
+        request.onupgradeneeded = () => {
+          const db = request.result
+          if (!db.objectStoreNames.contains(SOUND_STORE)) db.createObjectStore(SOUND_STORE)
+        }
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+    }
+
+    function withSoundStore(mode, action) {
+      return openSoundDb().then(
+        (db) =>
+          new Promise((resolve, reject) => {
+            const tx = db.transaction(SOUND_STORE, mode)
+            let request
+            try {
+              request = action(tx.objectStore(SOUND_STORE))
+            } catch (error) {
+              db.close()
+              reject(error)
+              return
+            }
+            tx.oncomplete = () => {
+              db.close()
+              resolve(request ? request.result : undefined)
+            }
+            tx.onerror = () => {
+              db.close()
+              reject(tx.error)
+            }
+            tx.onabort = () => {
+              db.close()
+              reject(tx.error)
+            }
+          }),
+      )
+    }
+
+    function saveSound(key, file) {
+      return withSoundStore('readwrite', (store) => store.put({ blob: file, name: file.name }, key))
+    }
+
+    function loadSound(key) {
+      return withSoundStore('readonly', (store) => store.get(key))
+    }
+
+    function dropSound(key) {
+      return withSoundStore('readwrite', (store) => store.delete(key))
     }
 
     function createWidget(ctx, buzzer) {
@@ -471,19 +653,23 @@ window.__ModuleLoader__.load({
         }
       }
 
-      function readVolume() {
+      function readVolume(key) {
         try {
-          const raw = Number(window.localStorage.getItem(VOLUME_KEY))
+          const raw = Number(window.localStorage.getItem(key))
           if (Number.isFinite(raw) && raw >= 0 && raw <= 100) return raw / 100
+          if (key !== LEGACY_VOLUME_KEY) {
+            const legacy = Number(window.localStorage.getItem(LEGACY_VOLUME_KEY))
+            if (Number.isFinite(legacy) && legacy >= 0 && legacy <= 100) return legacy / 100
+          }
         } catch (error) {
           /* storage unavailable */
         }
         return DEFAULT_VOLUME
       }
 
-      function writeVolume(value) {
+      function writeVolume(key, value) {
         try {
-          window.localStorage.setItem(VOLUME_KEY, String(Math.round(value * 100)))
+          window.localStorage.setItem(key, String(Math.round(value * 100)))
         } catch (error) {
           /* storage unavailable */
         }
@@ -530,13 +716,21 @@ window.__ModuleLoader__.load({
         const [, setLocaleTick] = React.useState(0)
         const [snapshot, setSnapshot] = React.useState(null)
         const [muted, setMuted] = React.useState(readMuted)
-        const [volume, setVolume] = React.useState(readVolume)
+        const [alarmVolume, setAlarmVolume] = React.useState(() => readVolume(ALARM_VOLUME_KEY))
+        const [idleVolume, setIdleVolume] = React.useState(() => readVolume(IDLE_VOLUME_KEY))
+        const [alarmFile, setAlarmFile] = React.useState(null)
+        const [idleFile, setIdleFile] = React.useState(null)
+        const [notice, setNotice] = React.useState('')
         const [size, setSize] = React.useState(readSize)
         const [greenOn, setGreenOn] = React.useState(true)
         const [alarmOn, setAlarmOn] = React.useState(false)
         const [soundUnlocked, setSoundUnlocked] = React.useState(false)
         const [panelOpen, setPanelOpen] = React.useState(false)
         const rootRef = React.useRef(null)
+        const alarmInput = React.useRef(null)
+        const idleInput = React.useRef(null)
+        const alarmUrlRef = React.useRef(null)
+        const idleUrlRef = React.useRef(null)
         const levelRef = React.useRef('unknown')
         const mutedRef = React.useRef(muted)
         const seenBeeps = React.useRef(null)
@@ -549,8 +743,40 @@ window.__ModuleLoader__.load({
         }, [])
 
         React.useEffect(() => {
-          buzzer.setVolume(volume)
-        }, [volume])
+          buzzer.setAlarmVolume(alarmVolume)
+        }, [alarmVolume])
+
+        React.useEffect(() => {
+          buzzer.setIdleVolume(idleVolume)
+        }, [idleVolume])
+
+        // Restore the optional custom sound files the user picked earlier.
+        React.useEffect(() => {
+          let alive = true
+          const attach = (key, urlRef, setFile) => {
+            loadSound(key)
+              .then((entry) => {
+                if (!alive || !entry || !entry.blob) return
+                const url = URL.createObjectURL(entry.blob)
+                urlRef.current = url
+                const role = key === SOUND_ALARM ? buzzer.setAlarmFile : buzzer.setIdleFile
+                role(url)
+                setFile({ name: String(entry.name || key), url })
+              })
+              .catch(() => {})
+          }
+          attach(SOUND_ALARM, alarmUrlRef, setAlarmFile)
+          attach(SOUND_IDLE, idleUrlRef, setIdleFile)
+          return () => {
+            alive = false
+            for (const ref of [alarmUrlRef, idleUrlRef]) {
+              if (ref.current) {
+                URL.revokeObjectURL(ref.current)
+                ref.current = null
+              }
+            }
+          }
+        }, [])
 
         React.useEffect(() => {
           let stopped = false
@@ -679,8 +905,9 @@ window.__ModuleLoader__.load({
         const counts = snapshot?.counts ?? { total: 0, waiting: 0, running: 0 }
         const waitingRows = Array.isArray(snapshot?.waiting) ? snapshot.waiting : []
         const runningRows = Array.isArray(snapshot?.running) ? snapshot.running : []
-        const percent = Math.round(volume * 100)
-        const silent = muted || percent === 0
+        const percent = Math.round(alarmVolume * 100)
+        const idlePercent = Math.round(idleVolume * 100)
+        const silent = muted || (percent === 0 && idlePercent === 0)
 
         let caption
         if (level === 'unknown') caption = dict.offline
@@ -708,7 +935,10 @@ window.__ModuleLoader__.load({
           if (counts.total === 0) lines.push(dict.empty)
         }
         if (level === 'waiting' && !silent && !soundUnlocked) lines.push(dict.soundLocked)
-        lines.push(`${dict.volume}: ${percent}%`)
+        lines.push(`${dict.alarmVolume}: ${percent}%`)
+        lines.push(`${dict.idleVolume}: ${idlePercent}%`)
+        if (alarmFile) lines.push(`${dict.alarmSound}: ${alarmFile.name}`)
+        if (idleFile) lines.push(`${dict.idleSound}: ${idleFile.name}`)
         lines.push(dict.hint)
         const tooltip = lines.join('\n')
 
@@ -719,16 +949,22 @@ window.__ModuleLoader__.load({
           writeMuted(next)
           if (!next) {
             buzzer.unlock()
-            buzzer.test()
+            buzzer.testAlarm()
             setSoundUnlocked(true)
           }
         }
 
-        const changeVolume = (event) => {
+        const changeVolume = (kind, event) => {
           const next = Math.max(0, Math.min(100, Number(event.target.value) || 0)) / 100
-          setVolume(next)
-          writeVolume(next)
-          buzzer.setVolume(next)
+          if (kind === SOUND_ALARM) {
+            setAlarmVolume(next)
+            writeVolume(ALARM_VOLUME_KEY, next)
+            buzzer.setAlarmVolume(next)
+          } else {
+            setIdleVolume(next)
+            writeVolume(IDLE_VOLUME_KEY, next)
+            buzzer.setIdleVolume(next)
+          }
           buzzer.unlock()
           setSoundUnlocked(true)
           if (muted && next > 0) {
@@ -737,10 +973,68 @@ window.__ModuleLoader__.load({
           }
         }
 
-        const previewVolume = () => {
+        const preview = (kind) => {
           buzzer.unlock()
           setSoundUnlocked(true)
-          if (!muted && volume > 0) buzzer.test()
+          if (muted) return
+          if (kind === SOUND_ALARM) {
+            if (alarmVolume > 0) buzzer.testAlarm()
+          } else if (idleVolume > 0) {
+            buzzer.testIdle()
+          }
+        }
+
+        const pickSound = async (kind, event) => {
+          const file = event && event.target && event.target.files ? event.target.files[0] : null
+          if (event && event.target) event.target.value = ''
+          if (!file) return
+          if (file.size > MAX_SOUND_BYTES) {
+            setNotice(dict.tooLarge)
+            return
+          }
+          try {
+            await saveSound(kind, file)
+          } catch (error) {
+            setNotice(String(error && error.message ? error.message : error))
+            return
+          }
+          setNotice('')
+          const url = URL.createObjectURL(file)
+          if (kind === SOUND_ALARM) {
+            if (alarmUrlRef.current) URL.revokeObjectURL(alarmUrlRef.current)
+            alarmUrlRef.current = url
+            buzzer.setAlarmFile(url)
+            setAlarmFile({ name: file.name, url })
+          } else {
+            if (idleUrlRef.current) URL.revokeObjectURL(idleUrlRef.current)
+            idleUrlRef.current = url
+            buzzer.setIdleFile(url)
+            setIdleFile({ name: file.name, url })
+          }
+        }
+
+        const resetSound = async (kind) => {
+          try {
+            await dropSound(kind)
+          } catch (error) {
+            /* storage unavailable */
+          }
+          setNotice('')
+          if (kind === SOUND_ALARM) {
+            if (alarmUrlRef.current) {
+              URL.revokeObjectURL(alarmUrlRef.current)
+              alarmUrlRef.current = null
+            }
+            buzzer.setAlarmFile(null)
+            setAlarmFile(null)
+          } else {
+            if (idleUrlRef.current) {
+              URL.revokeObjectURL(idleUrlRef.current)
+              idleUrlRef.current = null
+            }
+            buzzer.setIdleFile(null)
+            setIdleFile(null)
+          }
         }
 
         const changeSize = (event) => {
@@ -787,7 +1081,7 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { className: 'dsh-sl-row' },
-                h('span', { className: 'dsh-sl-row-label' }, dict.volume),
+                h('span', { className: 'dsh-sl-row-label' }, dict.alarmVolume),
                 h('input', {
                   type: 'range',
                   className: 'dsh-sl-range',
@@ -795,17 +1089,84 @@ window.__ModuleLoader__.load({
                   max: 100,
                   step: 5,
                   value: percent,
-                  'aria-label': dict.volume,
+                  'aria-label': dict.alarmVolume,
                   'aria-valuetext': `${percent}%`,
-                  onChange: changeVolume,
+                  onChange: (event) => changeVolume(SOUND_ALARM, event),
                   onPointerDown: () => {
                     buzzer.unlock()
                     setSoundUnlocked(true)
                   },
-                  onPointerUp: previewVolume,
-                  onKeyUp: previewVolume,
+                  onPointerUp: () => preview(SOUND_ALARM),
+                  onKeyUp: () => preview(SOUND_ALARM),
                 }),
                 h('span', { className: 'dsh-sl-row-value' }, `${percent}%`),
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.alarmSound),
+                h('span', { className: 'dsh-sl-file', title: alarmFile ? alarmFile.name : dict.defaultSound }, alarmFile ? alarmFile.name : dict.defaultSound),
+                alarmFile
+                  ? h('button', { type: 'button', className: 'dsh-sl-link', onClick: () => void resetSound(SOUND_ALARM) }, dict.reset)
+                  : null,
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-actions' },
+                h('button', { type: 'button', className: 'dsh-sl-test', onClick: () => alarmInput.current && alarmInput.current.click() }, dict.chooseFile),
+                h('button', { type: 'button', className: 'dsh-sl-link', onClick: () => preview(SOUND_ALARM) }, dict.previewAlarm),
+                h('input', {
+                  ref: alarmInput,
+                  type: 'file',
+                  accept: 'audio/*',
+                  style: { display: 'none' },
+                  onChange: (event) => void pickSound(SOUND_ALARM, event),
+                }),
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.idleVolume),
+                h('input', {
+                  type: 'range',
+                  className: 'dsh-sl-range',
+                  min: 0,
+                  max: 100,
+                  step: 5,
+                  value: idlePercent,
+                  'aria-label': dict.idleVolume,
+                  'aria-valuetext': `${idlePercent}%`,
+                  onChange: (event) => changeVolume(SOUND_IDLE, event),
+                  onPointerDown: () => {
+                    buzzer.unlock()
+                    setSoundUnlocked(true)
+                  },
+                  onPointerUp: () => preview(SOUND_IDLE),
+                  onKeyUp: () => preview(SOUND_IDLE),
+                }),
+                h('span', { className: 'dsh-sl-row-value' }, `${idlePercent}%`),
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-row' },
+                h('span', { className: 'dsh-sl-row-label' }, dict.idleSound),
+                h('span', { className: 'dsh-sl-file', title: idleFile ? idleFile.name : dict.defaultSound }, idleFile ? idleFile.name : dict.defaultSound),
+                idleFile
+                  ? h('button', { type: 'button', className: 'dsh-sl-link', onClick: () => void resetSound(SOUND_IDLE) }, dict.reset)
+                  : null,
+              ),
+              h(
+                'div',
+                { className: 'dsh-sl-actions' },
+                h('button', { type: 'button', className: 'dsh-sl-test', onClick: () => idleInput.current && idleInput.current.click() }, dict.chooseFile),
+                h('button', { type: 'button', className: 'dsh-sl-link', onClick: () => preview(SOUND_IDLE) }, dict.previewIdle),
+                h('input', {
+                  ref: idleInput,
+                  type: 'file',
+                  accept: 'audio/*',
+                  style: { display: 'none' },
+                  onChange: (event) => void pickSound(SOUND_IDLE, event),
+                }),
               ),
               h(
                 'div',
@@ -824,7 +1185,7 @@ window.__ModuleLoader__.load({
                 }),
                 h('span', { className: 'dsh-sl-row-value' }, `${size}px`),
               ),
-              h('div', { className: 'dsh-sl-row' }, h('button', { type: 'button', className: 'dsh-sl-test', onClick: previewVolume }, dict.preview)),
+              notice ? h('div', { className: 'dsh-sl-notice' }, notice) : null,
             )
           : null
 

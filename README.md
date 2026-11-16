@@ -32,8 +32,9 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 ## 使用
 
 - 悬停信号塔：显示每个对话的标题与等待原因。
-- 左键或右键点击信号塔：打开「信号灯设置」面板，里面是蜂鸣器静音开关、音量滑块（0–100%，松手试听）、**信号塔大小滑块（16–160 px）** 和试听按钮；点面板外面或按 Esc 关闭。
-- 设置记在浏览器 `localStorage`（`dsh.status-light.muted`、`dsh.status-light.volume`、`dsh.status-light.size`）。
+- 左键或右键点击信号塔：打开「信号灯设置」面板，里面是蜂鸣器总开关、**红灯音效**的音量与音效文件、**转绿提示音**的音量与音效文件、信号塔大小（16–160 px），每个音效都有「试听」；点面板外面或按 Esc 关闭。
+- 音效文件可以选任意浏览器能播放的音频（≤ 5 MB），不选就用内置的合成蜂鸣；「恢复默认」清掉已选文件。文件存在浏览器 IndexedDB（库名 `dsh-status-light`），开关、音量、大小存在 `localStorage`。
+- 设置记在浏览器 `localStorage`（`dsh.status-light.muted`、`dsh.status-light.volume.alarm`、`dsh.status-light.volume.idle`、`dsh.status-light.size`）。
 - 进入空闲时绿灯先闪 3 下（亮 1.2 s、灭 0.5 s），然后转为常亮。
 - **有对话从“运行中”变为空闲时**会短促提示两声：`0.3 s 响 / 0.1 s 停 / 0.3 s 响`，停 0.3 s 后再重复一次（共 4 声，约 1.7 秒）；即使其他对话仍在运行（黄灯）也会响。静音时同红灯一样不出声。
 - `/_dsh/status-light/probe` 是只读诊断端点：列出每个活动会话的待审批数与 `userQuestions` 投影，排查“该响没响”时用。
