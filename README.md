@@ -58,4 +58,4 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 
 [GNU General Public License v3.0 only](LICENSE) © 2026 YunJianFengYin
 
-本插件以 GPL-3.0（仅版本 3，不含“或更高版本”条款）发布。若要改为 `GPL-3.0-or-later`，把 `package.json` 的 `license` 字段与本节文案一并改掉即可。
+本插件以 GPL-3.0（仅版本 3，不含“或更高版本”条款）发布。
