@@ -41,7 +41,9 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 
 ## 宣传视频 / Promo
 
-[promo/dsh-status-light-promo.mp4](promo/dsh-status-light-promo.mp4) — 19 秒，1280×720，24 fps，带蜂鸣与转绿提示音（由 `tools/make-promo.py` 生成，`promo/poster.png` 是封面帧）。
+- [promo/dsh-status-light-promo-scored.mp4](promo/dsh-status-light-promo-scored.mp4) — 19 秒成片：科技感 BGM + 原片蜂鸣/提示音；BGM 在提示音响起的约 1 秒里自动压低 9 dB（剪辑台工程 `prj_b017qa0s`，可继续调）。
+- [promo/dsh-status-light-promo.mp4](promo/dsh-status-light-promo.mp4) — 无 BGM 的原始版，也是配乐工程的画面来源（`tools/make-promo.py` 生成）。
+- [promo/dsh-status-light-bgm-v2.wav](promo/dsh-status-light-bgm-v2.wav) — BGM 单独输出（19.05 s / 48 kHz 立体声）；谱子 [promo/bgm-score-v2.json](promo/bgm-score-v2.json)，由 [tools/make-bgm-score.py](tools/make-bgm-score.py) 生成（120 BPM、D 小调、主音/低音/鼓/铺底/点缀五轨）。
 
 ## 结构
 
