@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-status-light",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Factory stack light for workspace conversations: red waits for you, amber is working, green is idle.",
   "type": "module",
@@ -34,6 +34,8 @@
     "locale/*.json",
     "icon.svg",
     "assets/icon.png",
+    "assets/icon.ico",
+    "assets/icon-256.png",
     "README.md",
     "LICENSE"
   ],

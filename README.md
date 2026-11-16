@@ -45,6 +45,7 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 - `client.js`：浏览器半。注册到 `shell.overlay` 槽位，轮询上面的快照，用 SVG 画信号塔并用 Web Audio 合成蜂鸣器音；右键（或左键）信号塔弹出设置面板。
 - `locale/en.json`、`locale/zh.json`：插件管理器里显示的标题与说明。
 - `icon.svg`：插件管理器使用的图标；`assets/icon.png` 是市场卡片用的位图图标，由 `tools/make-icon.py` 生成。
+- `assets/icon.ico`：Windows 用的多尺寸图标（16/24/32/48/64/128/256），由 `tools/make-ico.py` 从 `assets/tower-source.png`（信号塔截图）生成；`assets/icon-256.png` 是同图预览。
 - `submission/YunJianFengYin__dsh-status-light.yml`：提交到 awesome-dsh-plugin 列表的条目文件（放到该仓库的 `data/plugins/` 下）。
 - `cordis.patch.yml`：插件装载补丁（`dsh.bundle.patch` 指向它）。
 
