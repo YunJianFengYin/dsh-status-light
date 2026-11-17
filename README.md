@@ -49,6 +49,7 @@ A factory-style stack light for the DeepSeek Harness Web UI: it merges the state
 
 ## 说明
 
+- 两个只读端点（`/_dsh/status-light/state.json` 与 `/_dsh/status-light/probe`）在每个 handler 入口先调用 `ctx.connection.requestRejection()`，执行与 DSH 共享 API 通道相同的 Host / Origin 与浏览器凭证检查；未认证请求返回 401 / 403。
 - 状态快照只包含会话标题、等待类型与运行标志，不出本机。
 - 蜂鸣器由 Web Audio 实时合成：固定 ≈2.1 kHz 方波过 3.2 kHz 低通，音量由滑块映射到增益，不依赖任何音频文件。
 - 红灯**随蜂鸣同步闪烁**：响的 1 秒亮、静音的 0.6 秒灭（静音时仍按这个节奏闪，只是不出声）。

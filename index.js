@@ -378,15 +378,38 @@ export function apply(ctx) {
   }
 
   ctx.inject(['webServer'], (web) => {
+    // A plain Web route is not admitted by Connection on its own, so every
+    // handler runs the same Host / Origin and browser-authentication check the
+    // shared API channel applies before answering.
+    const guard = (request) => {
+      const connection = ctx.get('connection')
+      if (!connection || typeof connection.requestRejection !== 'function') return null
+      let rejection
+      try {
+        rejection = connection.requestRejection({ headers: request.headers })
+      } catch (error) {
+        ctx.logger?.warn?.('dsh-status-light: connection check failed', error)
+        rejection = 403
+      }
+      if (!rejection) return null
+      return new Response(rejection === 401 ? 'Unauthorized' : 'Forbidden', {
+        status: rejection,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+      })
+    }
+
     web.effect(
       () =>
         web.webServer.register({
           kind: 'exact',
           path: '/_dsh/status-light/probe',
-          resource: async () =>
-            new Response(JSON.stringify(hostProbe()), {
+          resource: async (request) => {
+            const denied = guard(request)
+            if (denied) return denied
+            return new Response(JSON.stringify(hostProbe()), {
               headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-            }),
+            })
+          },
         }),
       'dsh-status-light: probe route',
     )
@@ -396,7 +419,9 @@ export function apply(ctx) {
         web.webServer.register({
           kind: 'exact',
           path: ROUTE_PATH,
-          resource: async () => {
+          resource: async (request) => {
+            const denied = guard(request)
+            if (denied) return denied
             let body
             try {
               body = JSON.stringify(await collect())
